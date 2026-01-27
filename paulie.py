@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import altair as alt  # 引入專業繪圖庫以強制設定顏色
+import altair as alt
 from datetime import datetime
 
 # ==========================================
@@ -26,13 +26,13 @@ CARB_FACTOR = 5.0
 TARGET_BG = 150
 
 # ==========================================
-# 2. 系統初始化 & CSS 暴力美學 (強制亮色)
+# 2. 系統初始化 & CSS & 小豹置頂
 # ==========================================
 st.set_page_config(page_title="倪小豹血糖監控", page_icon="𓃠", layout="centered")
 
-# 準備圖片來源
 img_src = PAULIE_IMG_DATA if len(PAULIE_IMG_DATA) > 50 else ""
 
+# 我們將 CSS, HTML(圖片) 和 JS 整合在一個 markdown區塊中
 st.markdown(f"""
     <style>
         /* 1. 全局背景 */
@@ -45,78 +45,69 @@ st.markdown(f"""
             background-color: rgba(255, 255, 255, 0.95) !important;
             border-radius: 20px;
             padding: 2rem !important;
+            /* 增加上方邊距，讓出空間給小豹 */
+            margin-top: 20px !important; 
             box-shadow: 0 10px 30px rgba(0,0,0,0.1);
             max-width: 700px;
         }}
 
-        /* --- 3. 核彈級修正：強制輸入框變白 --- */
-        
-        /* 針對 Number Input 的外層容器 */
+        /* --- 強制亮色修正 (維持不變) --- */
         div[data-baseweb="input"] {{
             background-color: #FFFFFF !important;
             border: 1px solid #CCCCCC !important;
             color: #333333 !important;
         }}
-        
-        /* 針對輸入框內部的實際 input */
         input.st-ai, input.st-ah, input[type="number"] {{
             color: #333333 !important;
             background-color: #FFFFFF !important;
-            -webkit-text-fill-color: #333333 !important; /* Safari/Mac 專用強制色 */
-            caret-color: #333333 !important; /* 游標顏色 */
+            -webkit-text-fill-color: #333333 !important;
+            caret-color: #333333 !important;
         }}
-
-        /* 針對 Selectbox 下拉選單 */
         div[data-baseweb="select"] > div {{
             background-color: #FFFFFF !important;
             color: #333333 !important;
             border: 1px solid #CCCCCC !important;
         }}
-        
-        /* 針對下拉選單內的文字 */
         div[data-baseweb="select"] span {{
             color: #333333 !important;
         }}
-        
-        /* 下拉選單彈出的清單 */
         ul[data-baseweb="menu"] {{
             background-color: #FFFFFF !important;
         }}
         li[data-baseweb="option"] {{
             color: #333333 !important;
         }}
-
-        /* 4. 文字顏色修正 */
         h1, h2, h3, h4, p, label, span, div {{
             color: #4A4A4A !important;
         }}
-        
-        /* 隱藏 Header/Footer */
         header {{visibility: hidden;}}
         footer {{visibility: hidden;}}
 
-        /* 5. 小豹守護神 (確保層級最高) */
+        /* --- 小豹守護神 (置頂中央版) --- */
         #paulie-guardian {{
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            width: 140px;
-            height: 140px;
-            border-radius: 50%;
-            border: 5px solid #FFFFFF;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            /* 改為相對定位，跟隨頁面流動 */
+            position: relative; 
+            display: block; /* 區塊元素才能置中 */
+            /* 上方留白30px, 左右自動置中, 下方留白10px */
+            margin: 30px auto 10px auto; 
+            width: 160px; /* 稍微大一點點當主視覺 */
+            height: 160px;
+            border-radius: 50%; /* 圓形 */
+            border: 6px solid #FFFFFF; /* 白框加粗一點 */
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15); /* 陰影加強立體感 */
             object-fit: cover;
-            z-index: 999999; /* 層級設超高，保證不被蓋住 */
-            pointer-events: none;
+            z-index: 100;
+            /* 讓滑鼠穿透，避免擋到正下方的標題(雖然機率低但保險起見) */
+            pointer-events: none; 
             transition: transform 0.1s ease-out;
-            background-color: #FFF; /* 避免圖片讀取前是黑的 */
+            background-color: #FFF;
         }}
     </style>
 
     <img id="paulie-guardian" src="{img_src}">
 
     <script>
-    // 簡單的 JS 互動
+    // JS 互動維持不變
     try {{
         parent.document.addEventListener('mousemove', function(e) {{
             const paulie = parent.document.getElementById('paulie-guardian');
@@ -125,8 +116,9 @@ st.markdown(f"""
                 const h = window.innerHeight;
                 const mouseX = e.clientX;
                 const mouseY = e.clientY;
-                const moveX = (mouseX - w) * 0.04;
-                const moveY = (mouseY - h) * 0.04;
+                // 計算相對於中心點的移動量
+                const moveX = (mouseX - w/2) * 0.03; // 係數調小一點，動作更優雅
+                const moveY = (mouseY - h/2) * 0.03;
                 paulie.style.transform = `translate(${{moveX}}px, ${{moveY}}px)`;
             }}
         }});
@@ -152,11 +144,12 @@ st.markdown("""
         font-weight: 900;
         margin-bottom: 0;
         letter-spacing: 2px;
+        margin-top: 0px; /* 移除標題上方多餘邊距，緊貼小豹 */
     '>
         小豹血糖儀表板
     </h1>
     <p style='text-align: center; font-size: 14px; opacity: 0.6; margin-top: 5px;'>
-        CLINICAL GRADE ANALYSIS v8.0
+        TILLNA DATA ANALYSIS v5.0
     </p>
     <hr style='border-top: 2px solid #E74C3C; opacity: 0.3; margin-bottom: 20px;'>
 """, unsafe_allow_html=True)
@@ -168,7 +161,7 @@ st.markdown("#### 設定狀態向量")
 
 period = st.radio(
     "週期",
-    ["☀️ Morning (白天)", "🌙 Evening (夜間)"],
+    ["☀️ Morning (白天)", "🌙 Evening (晚上)"],
     index=st.session_state.cycle_index,
     horizontal=True,
     label_visibility="collapsed",
@@ -205,7 +198,7 @@ if st.button("💾 計算向量並記錄 (Compute)", type="primary", use_contain
     st.toast("✅ System Updated")
 
 # ==========================================
-# 5. 運算與圖表 (使用 Altair 強制白底)
+# 5. 運算與圖表 (Altair 強制白底)
 # ==========================================
 curve = GHOST_DATA[cycle_key]
 start_idx = int(hours_since_shot)
@@ -223,32 +216,28 @@ for i in range(prediction_hours + 1):
     trend_mod = -20 if "⬇️" in trend else (-10 if "↘️" in trend else (20 if "⬆️" in trend else 0))
     pred_y.append(base_val + offset + (trend_mod * i * 0.5))
 
-# 整理圖表數據
 chart_data = pd.DataFrame({
-    "時間軸": pred_x * 2, # 重複時間軸給兩條線
+    "時間軸": pred_x * 2,
     "血糖值": pred_y + ghost_y,
     "類型": ["預測"] * len(pred_y) + ["基準"] * len(ghost_y)
 })
 
 st.subheader("📈 臨床預測")
 
-# 【關鍵修改】使用 Altair 取代 st.line_chart 以強制設定顏色
 chart = alt.Chart(chart_data).mark_line(point=True).encode(
     x=alt.X('時間軸', sort=pred_x),
     y=alt.Y('血糖值', scale=alt.Scale(domain=[min(min(pred_y), min(ghost_y))-20, max(max(pred_y), max(ghost_y))+20])),
     color=alt.Color('類型', scale=alt.Scale(domain=['預測', '基準'], range=['#E74C3C', '#3498DB']))
 ).properties(
-    # 強制設定圖表背景為透明或白色
     background='rgba(255,255,255,0)' 
 ).configure(
-    # 配置整體樣式，確保文字不是黑的
     background='#FFFFFF' 
 ).configure_axis(
     labelColor='#555555',
     titleColor='#555555',
     gridColor='#EEEEEE'
 ).configure_view(
-    strokeWidth=0  # 移除邊框
+    strokeWidth=0
 ).configure_legend(
     labelColor='#555555',
     titleColor='#555555'
