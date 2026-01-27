@@ -5,8 +5,6 @@ from datetime import datetime
 # ==========================================
 # 1. 核心參數與數據模型
 # ==========================================
-
-# 2026/1 臨床數據模型 (Morning Resistance vs Evening Sensitivity)
 GHOST_DATA = {
     "Morning": { 
         0: 369, 1: 434, 2: 436, 3: 417, 4: 399, 
@@ -18,36 +16,33 @@ GHOST_DATA = {
     }
 }
 
-# 升糖計算參數
-CARB_FACTOR = 5.0  # 1g GI粉 約提升 5 mg/dL
-TARGET_BG = 150    # 防禦性補食的目標安全值
+CARB_FACTOR = 5.0
+TARGET_BG = 150 
 
 # ==========================================
 # 2. 頁面初始化
 # ==========================================
-st.set_page_config(page_title="倪小豹血糖判讀儀表板 v3.2", page_icon="𓃠", layout="centered")
+st.set_page_config(page_title="Project Paulie v3.6", page_icon="𓃠", layout="centered")
 
 if 'history' not in st.session_state:
     st.session_state.history = []
 
-# 標題區
 st.markdown("""
-    <h2 style='color: #C0392B; text-align: center; margin-bottom: 0;'>𓃠 PROJECT PAULIE（小豹血糖計畫）</h2>
-    <p style='color: #7F8C8D; text-align: center; font-size: 14px;'>Clinical Monitoring System v3.7 (Safety Logic)</p>
+    <h2 style='color: #C0392B; text-align: center; margin-bottom: 0;'>𓃠 小豹血糖預測表</h2>
+    <p style='color: #7F8C8D; text-align: center; font-size: 14px;'>Clinical Monitoring v3.8 (Trend Analysis)</p>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 3. 控制面板 (Control Panel) - 手機優先設計
+# 3. 控制面板 (Control Panel)
 # ==========================================
 with st.container(border=True):
-    st.markdown("**1️⃣ 設定當前狀態 (Status)**")
+    st.markdown("**1️⃣ 設定當前狀態**")
     
-    # 自動判斷時段
     current_hour = datetime.now().hour
     default_index = 0 if 7 <= current_hour < 19 else 1
     
     period = st.radio(
-        "選擇週期:",
+        "週期",
         ["☀️ Morning (日落期)", "🌙 Evening (夜間期)"],
         index=default_index,
         horizontal=True,
@@ -57,7 +52,7 @@ with st.container(border=True):
     
     st.markdown("---")
     
-    # 輸入區
+    # 第一排：數值與時間
     col1, col2 = st.columns(2)
     with col1:
         st.markdown("**目前血糖**")
@@ -66,19 +61,27 @@ with st.container(border=True):
         st.markdown("**距離打針**")
         hours_since_shot = st.slider("小時", 0.0, 11.0, 2.0, 0.5, label_visibility="collapsed")
         st.caption(f"已過 {hours_since_shot} 小時")
+    
+    # 新增：趨勢選擇 (Trend Selection)
+    st.markdown("**血糖趨勢 (Trend)**")
+    trend = st.selectbox(
+        "趨勢", 
+        ["➡️ 平穩 (Stable)", "↘️ 緩步下降 (Slow Drop)", "⬇️ 快速下降 (Rapid Drop)", "↗️ 緩步上升 (Slow Rise)", "⬆️ 快速上升 (Rapid Rise)"],
+        label_visibility="collapsed"
+    )
 
-    # 執行按鈕
     if st.button("💾 記錄並分析 (Analyze)", type="primary", use_container_width=True):
         st.session_state.history.append({
             "Time": datetime.now().strftime("%H:%M"),
             "Cycle": cycle_key,
             "Shot_Time": f"+{hours_since_shot}h",
-            "Glucose": current_bg
+            "Glucose": current_bg,
+            "Trend": trend.split(" ")[0] # 只存箭頭
         })
         st.toast("✅ 數據已更新！")
 
 # ==========================================
-# 4. 運算核心 (Prediction Core)
+# 4. 運算核心
 # ==========================================
 curve = GHOST_DATA[cycle_key]
 start_idx = int(hours_since_shot)
@@ -93,96 +96,114 @@ for i in range(prediction_hours + 1):
     base_val = curve.get(future_time, 300)
     pred_x.append(f"+{future_time}h")
     ghost_y.append(base_val)
-    pred_y.append(base_val + offset)
+    # 簡單的趨勢修正預測：如果是快速下降，預測線會壓低一點
+    trend_mod = -20 if "⬇️" in trend else (-10 if "↘️" in trend else (20 if "⬆️" in trend else 0))
+    pred_y.append(base_val + offset + (trend_mod * i * 0.5)) # 隨時間放大趨勢影響
 
 chart_data = pd.DataFrame({"時間軸": pred_x, "預測": pred_y, "基準": ghost_y})
 
-# 顯示圖表
 st.subheader("📈 臨床預測")
 st.line_chart(chart_data.set_index("時間軸"), color=["#E74C3C", "#3498DB"])
 
 # ==========================================
-# 5. 邏輯判讀核心 (Safety Logic v3.7)
+# 5. 邏輯判讀核心 (含趨勢分析)
 # ==========================================
 st.markdown("### 📋 判讀報告")
 
-# --- A. 狀態文字生成 ---
 status_msg = ""
 status_desc = ""
+
+# 趨勢危險因子
+is_dropping = "下降" in trend
+is_rising = "上升" in trend
 
 if current_bg < 100:
     status_msg = "🚨 **低血糖危險 (Hypoglycemia)**"
     status_desc = "數值危險，請優先急救。"
 elif current_bg < 180:
-    status_msg = "⚠️ **密切觀察區 (Low Monitor)**"
-    status_desc = "數值偏低，禁止稀釋/過度干預。"
+    if is_dropping:
+        status_msg = "⚠️ **密切觀察 (Dropping)**"
+        status_desc = f"數值偏低且趨勢向下 ({trend})。即使是晚上也需提高警覺。"
+    else:
+        status_msg = "👁️ **觀察區 (Monitor)**"
+        status_desc = "數值偏低但趨勢平穩。維持現狀，不需過度介入。"
 elif cycle_key == "Morning":
     status_msg = "🛡️ **高抗性期 (High Resistance)**"
-    status_desc = "數值偏高為常態，胰島素作用受限。"
+    status_desc = "日落期抗性高，數值偏高為常態。"
 else:
-    status_msg = "🌙 **高敏感期 (High Sensitivity)**"
-    status_desc = "夜間胰島素作用強，需提防清晨低點。"
+    if is_dropping and current_bg > 300:
+        status_msg = "📉 **有效降糖中 (Dropping)**"
+        status_desc = "數值雖高但正在下降，藥效發揮中，請勿補針或過度餵食。"
+    else:
+        status_msg = "🌙 **高敏感期 (High Sensitivity)**"
+        status_desc = "夜間需注意清晨低點。"
 
 st.info(f"{status_msg}\n\n{status_desc}")
 
-# --- B. 飲食建議邏輯 (修正Bug重點區) ---
+# ==========================================
+# 6. 飲食建議 (含趨勢連動)
+# ==========================================
 advice_diet = ""
 param_detail = ""
 
-# 邏輯層級 1: 急救 (絕對優先)
+# 1. 急救
 if current_bg < 100:
     advice_diet = "🚨 **緊急處置：高濃度糖漿/蜂蜜**"
-    param_detail = "⚠️ **危急狀態**：禁止灌食固體，直接黏膜吸收。"
+    param_detail = "危急狀態，禁止固體食物。"
 
-# 邏輯層級 2: 安全防禦 (只要 < 180，無論早晚，絕對禁止稀釋)
+# 2. 安全防禦 (<180)
 elif current_bg < 180:
     needed_rise = TARGET_BG - current_bg
     
     if cycle_key == "Morning":
-        # 早上罕見低值：不補粉(抗性高補了沒用)，但也絕不稀釋
+        # 早上：不管趨勢如何，低於180就是觀察，絕不稀釋
         advice_diet = "👁️ **密切觀察 (不稀釋、不補粉)**"
-        param_detail = "數值偏低，系統強制暫停飲水建議。因早晨抗性高，補粉效益不明，優先觀察。"
+        param_detail = "早晨抗性高，不建議補粉。且數值偏低，禁止稀釋。"
     else:
-        # 晚上低值：計算補粉量
+        # 晚上：看趨勢決定要不要加強防禦
         if needed_rise > 0:
             grams_needed = round(needed_rise / CARB_FACTOR, 1)
-            advice_diet = f"🛡️ **防禦性補食：餐中添加 {grams_needed}g GI粉**"
-            param_detail = f"目標拉回 {TARGET_BG}。算式: ({TARGET_BG}-{current_bg})/{CARB_FACTOR} = {grams_needed}g"
+            # 如果正在快速下降，建議稍微多補一點點緩衝 (x1.2)
+            if "快速下降" in trend:
+                grams_needed = round(grams_needed * 1.2, 1)
+                advice_diet = f"🛡️ **加強防禦：餐中添加 {grams_needed}g GI粉**"
+                param_detail = f"趨勢快速下降，係數加權 1.2倍。目標拉回 {TARGET_BG}。"
+            elif is_dropping:
+                 advice_diet = f"🛡️ **防禦性補食：餐中添加 {grams_needed}g GI粉**"
+                 param_detail = f"趨勢緩降。算式: ({TARGET_BG}-{current_bg})/{CARB_FACTOR} = {grams_needed}g"
+            else:
+                 advice_diet = "✅ **標準飲食 (或極少量補粉)**"
+                 param_detail = "數值雖低但趨勢平穩/上升，可維持正常餵食或僅給 1g 點心。"
         else:
             advice_diet = "✅ **標準飲食**"
-            param_detail = "數值在安全區間，無須介入。"
+            param_detail = "安全區間。"
 
-# 邏輯層級 3: 常規高血糖 (> 180)
+# 3. 高血糖 (>180)
 else:
     if cycle_key == "Morning":
-        # 只有在「早上」且「高血糖」時，才建議多喝水
-        advice_diet = "💧 **標準飲食 + 強化飲水 (Hydration)**"
-        param_detail = "數值偏高，利用水分幫助代謝多餘糖分 (Dilution Strategy)。"
+        # 早上高血糖
+        if is_rising or "平穩" in trend:
+             advice_diet = "💧 **標準飲食 + 強化飲水**"
+             param_detail = "趨勢向上/持平，建議加強水分代謝。"
+        else:
+             advice_diet = "✅ **標準飲食 (暫不強迫飲水)**"
+             param_detail = "趨勢正在下降，讓身體自然代謝，避免過度干擾。"
     else:
+        # 晚上高血糖
         advice_diet = "✅ **標準飲食**"
-        param_detail = "夜間數值尚可，維持正常餵食。"
+        param_detail = "維持正常。"
 
-# ==========================================
-# 6. 顯示建議卡片
-# ==========================================
+# 顯示卡片
 st.markdown("### 🍽️ 下一餐飲食建議")
 with st.container(border=True):
     st.markdown(f"#### {advice_diet}")
     st.markdown("---")
     st.caption(f"**邏輯依據:** {param_detail}")
 
-# ==========================================
-# 7. 側邊欄 (下載功能)
-# ==========================================
+# 側邊欄下載
 with st.sidebar:
-    st.header("功能選單")
+    st.header("功能")
     if st.session_state.history:
         df_export = pd.DataFrame(st.session_state.history)
         csv = df_export.to_csv(index=False).encode('utf-8')
-        st.download_button(
-            label="📥 下載今日紀錄",
-            data=csv,
-            file_name=f"paulie_log_{datetime.now().strftime('%Y%m%d')}.csv",
-            mime="text/csv"
-        )
-    st.caption("Project Paulie v3.2 Stable")
+        st.download_button("📥 下載紀錄", csv, f"log_{datetime.now().strftime('%Y%m%d')}.csv", "text/csv")
