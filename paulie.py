@@ -43,7 +43,7 @@ with st.container(border=True):
     
     period = st.radio(
         "週期",
-        ["☀️ Morning (日落期)", "🌙 Evening (夜間期)"],
+        ["☀️ Morning", "🌙 Evening"],
         index=default_index,
         horizontal=True,
         label_visibility="collapsed"
