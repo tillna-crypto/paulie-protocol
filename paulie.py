@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+import os  # 新增：用於處理系統路徑
 
 # ==========================================
 # 1. 核心參數與數據模型 (2026/1 Clinical Model)
@@ -33,22 +34,32 @@ if 'cycle_index' not in st.session_state:
     st.session_state.cycle_index = 0 if 7 <= current_hour < 19 else 1
 
 # ==========================================
-# 3. 標題區 (整合插畫)
+# 3. 標題區 (整合自動導航插畫)
 # ==========================================
 # 使用 columns 來讓圖片水平置中
 col_spacer1, col_img, col_spacer2 = st.columns([3, 4, 3])
 
 with col_img:
-    # 嘗試顯示圖片，如果找不到檔案則顯示文字提示
+    # --- macOS/Windows 自動路徑偵測 ---
+    # 1. 抓取目前這個 .py 檔案所在的資料夾路徑
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    # 2. 組合出圖片的完整路徑 (Mac 會自動用 / 斜線)
+    img_path = os.path.join(current_dir, "paulie_logo.png")
+    
+    # 3. 嘗試顯示圖片
     try:
-        st.image("paulie_logo.png", use_container_width=True)
-    except:
-        st.warning("⚠️ 找不到 paulie_logo.png，請確認圖片已放入資料夾。")
+        if os.path.exists(img_path):
+            st.image(img_path, use_container_width=True)
+        else:
+            st.warning(f"⚠️ 找不到圖片\n系統路徑：{img_path}")
+            st.caption("請確認圖片檔名是否為 paulie_logo.png (注意副檔名)")
+    except Exception as e:
+        st.error(f"圖片讀取錯誤：{e}")
 
 # 標題文字
 st.markdown("""
-    <h2 style='color: #2C3E50; text-align: center; letter-spacing: 2px; margin-top: -15px; margin-bottom: 0;'>倪小豹血糖監控計畫</h2>
-    <p style='color: #95A5A6; text-align: center; font-size: 12px; letter-spacing: 1px;'>TILLNA ANALYSIS SYSTEM v3.0</p>
+    <h2 style='color: #2C3E50; text-align: center; letter-spacing: 2px; margin-top: -15px; margin-bottom: 0;'>倪小豹血糖專屬儀表板</h2>
+    <p style='color: #95A5A6; text-align: center; font-size: 12px; letter-spacing: 1px;'>TILLNA ANALYSIS SYSTEM v3.9</p>
     <hr style='border-top: 1px solid #eee;'>
 """, unsafe_allow_html=True)
 
@@ -56,11 +67,11 @@ st.markdown("""
 # 4. 控制面板 (Vector Control Panel)
 # ==========================================
 with st.container(border=True):
-    st.markdown("**設定狀態向量 (Status Vector)**")
+    st.markdown("**1️⃣ 設定狀態向量 (Status Vector)**")
     
     period = st.radio(
         "週期",
-        ["☀️ Morning ", "🌙 Evening"],
+        ["☀️ Morning", "🌙 Evening"],
         index=st.session_state.cycle_index, # 使用鎖定狀態
         horizontal=True,
         label_visibility="collapsed",
