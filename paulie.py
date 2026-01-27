@@ -2,173 +2,105 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 
-# --- 頁面設定 ---
-st.set_page_config(page_title="Project Paulie: Overwatch v3.0", page_icon="🐈", layout="centered")
+# --- 2026/1 核心數據模型 (基於最新六天數據) ---
+# Morning: 頑強抵抗，整天 400+
+# Evening: 真正有效的時段，Nadir 延後至 +10hr
+GHOST_DATA = {
+    "Morning": { 
+        0: 369, 1: 434, 2: 436, 3: 417, 4: 399, 
+        5: 397, 6: 406, 7: 430, 8: 435, 9: 465, 10: 464, 11: 456
+    },
+    "Evening": { 
+        0: 449, 1: 423, 2: 388, 3: 352, 4: 378, 
+        5: 358, 6: 286, 7: 257, 8: 192, 9: 162, 10: 155, 11: 191
+    }
+}
 
-# --- 初始化 Session State (用於存儲今日數據) ---
+st.set_page_config(page_title="Project Paulie: 2026 Protocol", page_icon="🦁", layout="centered")
+
 if 'history' not in st.session_state:
     st.session_state.history = []
 
 # --- 標題區 ---
-st.title(" 🐈 PROJECT PAULIE: OVERWATCH")
-st.caption("Target: Paulie (小豹) | Status: v3.0 Active Tracking")
+st.title("🦁 PROJECT PAULIE: 2026 PROTOCOL")
+st.caption("v3.2 | Data Source: 2026/1 (6-Day Avg)")
 st.markdown("---")
 
-# --- 側邊欄：進階參數與輸入 ---
+# --- 側邊欄 ---
 with st.sidebar:
-    st.header("⚙️ 參數校準 (Calibration)")
-    # 優化1: 讓升糖係數可調，適應不同時期的敏感度
-    CARB_FACTOR = st.number_input("升糖係數 (mg/dL per 1g)", value=5.0, step=0.1, help="1g GI粉能提升多少血糖")
-    NADIR_START = st.number_input("Nadir 開始 (+Hr)", value=3.5, step=0.5)
-    NADIR_END = st.number_input("Nadir 結束 (+Hr)", value=6.0, step=0.5)
+    st.header("⚙️ 戰場設定")
+    # 自動判斷早晚
+    current_hour = datetime.now().hour
+    # 假設 7點與19點換班
+    default_period = "Morning" if 7 <= current_hour < 19 else "Evening"
+    
+    period = st.radio("當前時段 (Cycle)", ["Morning", "Evening"], index=0 if default_period == "Morning" else 1)
     
     st.markdown("---")
-    st.header("📊 當前戰況輸入")
-    current_bg = st.number_input("1. 目前血糖 (mg/dL)", 20, 600, 150)
-    hours_since_shot = st.slider("2. 距離打針 (+Hrs)", 0.0, 12.0, 4.0, 0.5)
-    trend = st.selectbox("3. 血糖趨勢", ["⬇️ 快速下降", "↘️ 緩步下降", "➡️ 平穩", "↗️ 緩步上升", "⬆️ 快速上升"])
+    st.header("📊 戰況輸入")
+    current_bg = st.number_input("目前血糖", 20, 600, 350)
+    hours_since_shot = st.slider("距離打針 (+Hrs)", 0.0, 11.0, 2.0, 0.5)
     
-    st.markdown("---")
-    hydration_status = st.radio("今日皮下輸液", ["尚未輸液", "已輸液 50ml", "已輸液 >100ml"])
-    vomit_risk = st.checkbox("🚨 嘔吐風險 (剛吃/反流)", False)
-
-    # 優化2: 加入儲存按鈕
-    if st.button("💾 記錄此數據 (Save Point)"):
-        timestamp = datetime.now().strftime("%H:%M")
+    if st.button("💾 記錄數據點"):
         st.session_state.history.append({
-            "Time": timestamp,
+            "Time": datetime.now().strftime("%H:%M"),
             "BG": current_bg,
-            "Trend": trend,
             "Shot_Time": hours_since_shot
         })
-        st.success("數據已記錄！")
+        st.success("已記錄！")
 
-# --- 核心邏輯運算 (Logic Core) ---
-advice_color = "#98FB98"
-advice_title = "計算中..."
-advice_text = ""
-action_plan = ""
-bg_class = "NORMAL" # 用於圖表顏色
+# --- 預測核心 ---
+st.subheader("🔮 戰術預測 (Tactical Projection)")
 
-# 1. 危險區 (< 60)
-if current_bg < 60:
-    advice_color = "#FF4B4B" # Red
-    advice_title = "🔴 極度危險 (CRITICAL LOW)"
-    advice_text = "血糖已達休克風險區！優先救命！"
-    action_plan = f"👉 **立刻抹 3-5g 糖漿/蜂蜜** 在牙齦。\n\n🚫 **絕對禁止灌食**。"
-    bg_class = "CRITICAL"
+curve = GHOST_DATA[period]
+start_idx = int(hours_since_shot)
+prediction_hours = 4
 
-# 2. 警戒區 (60 - 100)
-elif 60 <= current_bg < 100:
-    advice_color = "#FFA500" # Orange
-    advice_title = "🟠 低血糖警戒 (WARNING)"
-    bg_class = "WARNING"
+# 計算偏差：小豹今天比「六日平均」高還是低？
+standard_bg_now = curve.get(start_idx, 300)
+offset = current_bg - standard_bg_now
+
+pred_x, pred_y, ghost_y = [], [], []
+
+for i in range(prediction_hours + 1):
+    future_time = start_idx + i
+    if future_time > 11: break
     
-    target_bg = 130
-    needed_rise = target_bg - current_bg
-    grams_needed = round(needed_rise / CARB_FACTOR, 1)
-    
-    advice_text = f"目標拉回 130 (需 +{needed_rise})。"
-    
-    if vomit_risk:
-        action_plan = "👉 **抹 2g 糖漿** (保護呼吸道，不灌食)。"
-    else:
-        water_amount = round(grams_needed * 3)
-        action_plan = f"👉 **灌食 {grams_needed}g GI粉 + {water_amount}cc 水**。"
+    base_val = curve.get(future_time, 300)
+    pred_x.append(f"+{future_time}h")
+    ghost_y.append(base_val)
+    pred_y.append(base_val + offset)
 
-# 3. 決策區 (100 - 180)
-elif 100 <= current_bg < 180:
-    is_nadir = NADIR_START <= hours_since_shot <= NADIR_END
-    
-    if is_nadir and ("下降" in trend):
-        advice_color = "#1E90FF" # Blue
-        advice_title = "🔵 納迪爾防禦 (Nadir Defense)"
-        advice_text = f"藥效最強時刻 (+{NADIR_START}~{NADIR_END}hr) 且趨勢向下。"
-        action_plan = "👉 **給予 3g GI粉 + 10cc 水** (緩衝煞車)。"
-        bg_class = "DEFENSE"
-    elif is_nadir and trend == "➡️ 平穩":
-        advice_color = "#228B22" # ForestGreen
-        advice_title = "🟢 完美滑行 (Perfect Glide)"
-        advice_text = "藥效高峰期維持平穩，最佳狀態。"
-        action_plan = "👉 **不需餵食**。密切觀察。"
-        bg_class = "PERFECT"
-    else:
-        advice_color = "#90EE90" # LightGreen
-        advice_title = "🟢 安全區間"
-        advice_text = "數值理想。"
-        action_plan = "👉 **休息**。不用做任何事。"
+# 繪圖
+chart_data = pd.DataFrame({
+    "時間軸": pred_x,
+    "今日預測 (Live)": pred_y,
+    "2026平均 (Ghost)": ghost_y
+})
+st.line_chart(chart_data.set_index("時間軸"), color=["#FF4B4B", "#CCCCCC"])
 
-# 4. 高血糖區 (> 300)
-elif current_bg >= 300:
-    bg_class = "HIGH"
-    # 優化3: 高血糖但快速下降的特殊判斷
-    if "快速下降" in trend:
-        advice_color = "#FF69B4" # HotPink
-        advice_title = "📉 空降警報 (RAPID DROP)"
-        advice_text = "數值雖高，但正在快速俯衝。"
-        action_plan = "👉 **30分鐘後立刻複測**，暫時不要補針或過度餵食，以免低血糖反撲。"
-    else:
-        advice_color = "#FFD700" # Gold
-        advice_title = "🟡 高血糖 (HIGH)"
-        hydration_advice = ""
-        if hydration_status == "尚未輸液":
-            hydration_advice = "\n💧 **建議：** 評估補皮下輸液。"
-        
-        if hours_since_shot < 3:
-             advice_text = "剛打針不久，藥效尚未完全發揮。" + hydration_advice
-             action_plan = "👉 **多喝水**，等待藥效。"
-        else:
-             advice_text = "藥效可能不足或反彈。" + hydration_advice
-             action_plan = "👉 **記錄數值**，維持觀察，不隨意加量。"
+# --- 戰術分析報告 ---
+st.info(f"**當前偏差：** {offset:+.0f} mg/dL (基準: {standard_bg_now})")
 
-else:
-    # 180-300
-    advice_color = "#98FB98"
-    advice_title = "✅ 可接受範圍"
-    advice_text = "比理想稍高，但安全。"
-    action_plan = "👉 **觀察即可**。"
-
-# --- 顯示介面 (UI) ---
-# 使用 container 讓排版更整齊
-with st.container():
-    st.markdown(f"""
-    <div style="padding: 20px; border-radius: 12px; background-color: {advice_color}; color: #000; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-        <h2 style="margin:0; color: #333; text-shadow: none;">{advice_title}</h2>
-        <p style="font-size: 20px; font-weight: bold; margin-top: 10px;">{advice_text}</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-col1, col2 = st.columns([2, 1])
-
-with col1:
-    st.subheader("🛠️ 戰術指令")
-    st.info(action_plan)
-
-with col2:
-    # 顯示關鍵數據指標
-    st.metric(label="預估升幅", value=f"{round((130-current_bg),1) if current_bg < 100 else 0} mg", delta=trend)
-
-# --- 數據儀表板 (History Chart) ---
-if st.session_state.history:
-    st.markdown("### 📈 今日戰役走勢 (Session History)")
-    df = pd.DataFrame(st.session_state.history)
-    
-    # 簡單的數據表
-    st.dataframe(df, use_container_width=True)
-    
-    # 簡單的折線圖 (如果有多筆數據)
-    if len(df) > 1:
-        st.line_chart(df, x="Time", y="BG")
-    
-    # 清除按鈕
-    if st.button("🗑️ 清除今日紀錄"):
-        st.session_state.history = []
-        st.rerun()
-
-# --- 頁尾說明 ---
-with st.expander("ℹ️ 關於此版本 (v3.0 Analysis)"):
-    st.markdown(f"""
-    * **核心演算法:** NADIR Defense Protocol
-    * **當前升糖係數:** `1g GI粉 ≈ +{CARB_FACTOR} mg/dL`
-    * **資料來源:** 根據 1/25 & 1/24 實戰數據校正
+if period == "Morning":
+    st.warning("""
+    **☀️ 早安戰場警示：**
+    * **無效區間：** 根據近期數據，早上打針後血糖**極難下降**，甚至常態維持 400+。
+    * **策略：** 如果數值 >300，請勿驚慌，這是近期的常態。重點觀察有無脫水症狀。
     """)
+else:
+    st.success("""
+    **🌙 晚安戰場提示：**
+    * **有效區間：** 晚上才是藥效發揮的時候！
+    * **Nadir 預警：** 最低點通常出現在 **+9 ~ +10小時 (清晨)**。
+    * **策略：** 睡前 (+4~5hr) 如果血糖已 <250，需特別注意清晨低血糖風險。
+    """)
+
+# --- 簡易急救邏輯 ---
+st.markdown("### 🛠️ 即時建議")
+if current_bg < 100:
+    st.error("🚨 **低血糖風險！** 雖然近期少見，但請立即準備糖漿。")
+elif period == "Evening" and hours_since_shot > 6 and current_bg < 200:
+    st.warning("⚠️ **清晨防禦：** 晚上後半段降幅大，若現在低於 200，建議給予少量 GI 粉防守。")
+else:
+    st.info("✅ **觀察即可**。")
