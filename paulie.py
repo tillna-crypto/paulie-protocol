@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import altair as alt  # 引入專業繪圖庫以強制設定顏色
 from datetime import datetime
 
 # ==========================================
@@ -25,7 +26,7 @@ CARB_FACTOR = 5.0
 TARGET_BG = 150
 
 # ==========================================
-# 2. 系統初始化 & 強力視覺修正
+# 2. 系統初始化 & CSS 暴力美學 (強制亮色)
 # ==========================================
 st.set_page_config(page_title="倪小豹血糖監控", page_icon="𓃠", layout="centered")
 
@@ -34,132 +35,102 @@ img_src = PAULIE_IMG_DATA if len(PAULIE_IMG_DATA) > 50 else ""
 
 st.markdown(f"""
     <style>
-        /* 1. 全局強制背景色 */
+        /* 1. 全局背景 */
         .stApp {{
             background-color: #F4E3CF !important;
         }}
-        
-        /* 2. 卡片區塊：白色半透明 */
+
+        /* 2. 內容卡片 */
         .block-container {{
             background-color: rgba(255, 255, 255, 0.95) !important;
             border-radius: 20px;
             padding: 2rem !important;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            max-width: 700px;
         }}
 
-        /* --- 3. 核心修正：暴力去除黑色輸入框 --- */
+        /* --- 3. 核彈級修正：強制輸入框變白 --- */
         
-        /* 針對數字輸入框 (Number Input) */
+        /* 針對 Number Input 的外層容器 */
         div[data-baseweb="input"] {{
-            background-color: #FFFFFF !important; /* 強制白底 */
-            border: 1px solid #D0D0D0 !important;
-        }}
-        /* 針對輸入框內的數字顏色 */
-        input[type="number"] {{
-            color: #333333 !important; /* 強制深色字 */
-            background-color: transparent !important;
-        }}
-        /* 針對加減按鈕 */
-        button[data-testid="stNumberInputStepDown"], button[data-testid="stNumberInputStepUp"] {{
-             color: #333333 !important;
-        }}
-
-        /* 針對下拉選單 (Selectbox) */
-        div[data-baseweb="select"] > div {{
-            background-color: #FFFFFF !important; /* 強制白底 */
-            border: 1px solid #D0D0D0 !important;
+            background-color: #FFFFFF !important;
+            border: 1px solid #CCCCCC !important;
             color: #333333 !important;
         }}
-        /* 下拉選單內的文字 */
+        
+        /* 針對輸入框內部的實際 input */
+        input.st-ai, input.st-ah, input[type="number"] {{
+            color: #333333 !important;
+            background-color: #FFFFFF !important;
+            -webkit-text-fill-color: #333333 !important; /* Safari/Mac 專用強制色 */
+            caret-color: #333333 !important; /* 游標顏色 */
+        }}
+
+        /* 針對 Selectbox 下拉選單 */
+        div[data-baseweb="select"] > div {{
+            background-color: #FFFFFF !important;
+            color: #333333 !important;
+            border: 1px solid #CCCCCC !important;
+        }}
+        
+        /* 針對下拉選單內的文字 */
         div[data-baseweb="select"] span {{
             color: #333333 !important;
         }}
-        /* 下拉選單彈出的清單背景 */
+        
+        /* 下拉選單彈出的清單 */
         ul[data-baseweb="menu"] {{
             background-color: #FFFFFF !important;
         }}
-        /* 清單選項文字 */
         li[data-baseweb="option"] {{
             color: #333333 !important;
         }}
 
-        /* 針對圖表背景 (拿掉黑底) */
-        canvas {{
-            filter: invert(0) !important; /* 防止圖表顏色被反轉 */
-        }}
-        [data-testid="stVegaLiteChart"] {{
-            background-color: transparent !important;
-        }}
-
-        /* 4. 全局文字顏色修正 */
+        /* 4. 文字顏色修正 */
         h1, h2, h3, h4, p, label, span, div {{
             color: #4A4A4A !important;
         }}
         
-        /* 隱藏預設 Header/Footer */
+        /* 隱藏 Header/Footer */
         header {{visibility: hidden;}}
         footer {{visibility: hidden;}}
 
-        /* 5. 小豹守護神樣式 (圓形徽章 + 呼吸動畫) */
+        /* 5. 小豹守護神 (確保層級最高) */
         #paulie-guardian {{
             position: fixed;
             bottom: 20px;
             right: 20px;
-            width: 150px;       /* 設定固定大小 */
-            height: 150px;
-            border-radius: 50%; /* 變成圓形 */
-            border: 5px solid #FFFFFF; /* 白框 */
+            width: 140px;
+            height: 140px;
+            border-radius: 50%;
+            border: 5px solid #FFFFFF;
             box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-            object-fit: cover;  /* 確保圖片填滿圓形不變形 */
-            z-index: 9999;      /* 確保在最上層 */
-            pointer-events: none; /* 讓滑鼠穿透 */
+            object-fit: cover;
+            z-index: 999999; /* 層級設超高，保證不被蓋住 */
+            pointer-events: none;
             transition: transform 0.1s ease-out;
-            animation: breathe 3s infinite ease-in-out; /* 呼吸動畫 */
+            background-color: #FFF; /* 避免圖片讀取前是黑的 */
         }}
-
-        /* 定義呼吸動畫：讓小豹微微浮動 */
-        @keyframes breathe {{
-            0% {{ transform: translateY(0px) scale(1); }}
-            50% {{ transform: translateY(-10px) scale(1.02); }}
-            100% {{ transform: translateY(0px) scale(1); }}
-        }}
-
     </style>
 
     <img id="paulie-guardian" src="{img_src}">
 
     <script>
-    // 嘗試在父層視窗監聽滑鼠
+    // 簡單的 JS 互動
     try {{
         parent.document.addEventListener('mousemove', function(e) {{
             const paulie = parent.document.getElementById('paulie-guardian');
             if (paulie) {{
-                // 停止 CSS 動畫以免衝突
-                paulie.style.animation = 'none';
-                
                 const w = window.innerWidth;
                 const h = window.innerHeight;
                 const mouseX = e.clientX;
                 const mouseY = e.clientY;
-                
-                // 計算位移
-                const moveX = (mouseX - w) * 0.05;
-                const moveY = (mouseY - h) * 0.05;
-                
+                const moveX = (mouseX - w) * 0.04;
+                const moveY = (mouseY - h) * 0.04;
                 paulie.style.transform = `translate(${{moveX}}px, ${{moveY}}px)`;
             }}
         }});
-        
-        // 滑鼠離開時恢復呼吸動畫
-        parent.document.addEventListener('mouseout', function() {{
-             const paulie = parent.document.getElementById('paulie-guardian');
-             if (paulie) {{
-                 paulie.style.animation = 'breathe 3s infinite ease-in-out';
-             }}
-        }});
-    }} catch(e) {{
-        console.log("Mouse tracking blocked by sandbox, keeping breathing animation.");
-    }}
+    }} catch(e) {{}}
     </script>
 """, unsafe_allow_html=True)
 
@@ -182,10 +153,10 @@ st.markdown("""
         margin-bottom: 0;
         letter-spacing: 2px;
     '>
-        小豹血糖監控
+        小豹血糖儀表板
     </h1>
     <p style='text-align: center; font-size: 14px; opacity: 0.6; margin-top: 5px;'>
-        TILLNA UPGRADE v7.2
+        CLINICAL GRADE ANALYSIS v8.0
     </p>
     <hr style='border-top: 2px solid #E74C3C; opacity: 0.3; margin-bottom: 20px;'>
 """, unsafe_allow_html=True)
@@ -234,7 +205,7 @@ if st.button("💾 計算向量並記錄 (Compute)", type="primary", use_contain
     st.toast("✅ System Updated")
 
 # ==========================================
-# 5. 運算與圖表
+# 5. 運算與圖表 (使用 Altair 強制白底)
 # ==========================================
 curve = GHOST_DATA[cycle_key]
 start_idx = int(hours_since_shot)
@@ -252,10 +223,39 @@ for i in range(prediction_hours + 1):
     trend_mod = -20 if "⬇️" in trend else (-10 if "↘️" in trend else (20 if "⬆️" in trend else 0))
     pred_y.append(base_val + offset + (trend_mod * i * 0.5))
 
-chart_data = pd.DataFrame({"時間軸": pred_x, "預測": pred_y, "基準": ghost_y})
+# 整理圖表數據
+chart_data = pd.DataFrame({
+    "時間軸": pred_x * 2, # 重複時間軸給兩條線
+    "血糖值": pred_y + ghost_y,
+    "類型": ["預測"] * len(pred_y) + ["基準"] * len(ghost_y)
+})
 
 st.subheader("📈 臨床預測")
-st.line_chart(chart_data.set_index("時間軸"), color=["#E74C3C", "#3498DB"])
+
+# 【關鍵修改】使用 Altair 取代 st.line_chart 以強制設定顏色
+chart = alt.Chart(chart_data).mark_line(point=True).encode(
+    x=alt.X('時間軸', sort=pred_x),
+    y=alt.Y('血糖值', scale=alt.Scale(domain=[min(min(pred_y), min(ghost_y))-20, max(max(pred_y), max(ghost_y))+20])),
+    color=alt.Color('類型', scale=alt.Scale(domain=['預測', '基準'], range=['#E74C3C', '#3498DB']))
+).properties(
+    # 強制設定圖表背景為透明或白色
+    background='rgba(255,255,255,0)' 
+).configure(
+    # 配置整體樣式，確保文字不是黑的
+    background='#FFFFFF' 
+).configure_axis(
+    labelColor='#555555',
+    titleColor='#555555',
+    gridColor='#EEEEEE'
+).configure_view(
+    strokeWidth=0  # 移除邊框
+).configure_legend(
+    labelColor='#555555',
+    titleColor='#555555'
+)
+
+st.altair_chart(chart, use_container_width=True)
+
 
 # ==========================================
 # 6. 判讀報告
