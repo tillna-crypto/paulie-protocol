@@ -32,7 +32,7 @@ TARGET_BG = 150
 # ==========================================
 # 2. 系統初始化 & CSS 客製化化 (UI優化核心)
 # ==========================================
-st.set_page_config(page_title="倪小豹血糖監控", page_icon="𓃠", layout="centered")
+st.set_page_config(page_title="倪小豹血糖儀表板", page_icon="𓃠", layout="centered")
 
 # --- 注入客製化 CSS ---
 # 1. 將背景改為插畫的米色底色 (#F4E3CF)
@@ -94,8 +94,8 @@ st.markdown("""
     '>
         倪小豹血糖向量監控
     </h2>
-    <p style='color: #7F8C8D; text-align: center; font-size: 12px; margin-top: 5px;'>TILLNA ANALYSIS SYSTEM v5.0</p>
-    <hr style='border-top: 2px solid #E74C3C; margin-top: 10px;'> /* 分隔線也改成鮮豔色 */
+    <p style='color: #7F8C8D; text-align: center; font-size: 12px; margin-top: 5px;'>TILLNA ANALYSIS SYSTEM 2026 copyright</p>
+    <hr style='border-top: 2px solid #E74C3C; margin-top: 10px;'> /
 """, unsafe_allow_html=True)
 
 # ==========================================
