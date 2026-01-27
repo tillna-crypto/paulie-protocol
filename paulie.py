@@ -25,14 +25,14 @@ TARGET_BG = 150    # 防禦性補食的目標安全值
 # ==========================================
 # 2. 頁面初始化
 # ==========================================
-st.set_page_config(page_title="倪小豹血糖判讀儀表板 v3.2", page_icon="🐈", layout="centered")
+st.set_page_config(page_title="倪小豹血糖判讀儀表板 v3.2", page_icon="𓃠", layout="centered")
 
 if 'history' not in st.session_state:
     st.session_state.history = []
 
 # 標題區
 st.markdown("""
-    <h2 style='color: #C0392B; text-align: center; margin-bottom: 0;'>🐈 PROJECT PAULIE（小豹血糖計畫）</h2>
+    <h2 style='color: #C0392B; text-align: center; margin-bottom: 0;'>𓃠 PROJECT PAULIE（小豹血糖計畫）</h2>
     <p style='color: #7F8C8D; text-align: center; font-size: 14px;'>Clinical Monitoring System v3.7 (Safety Logic)</p>
 """, unsafe_allow_html=True)
 
