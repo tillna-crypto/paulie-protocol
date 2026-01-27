@@ -15,14 +15,14 @@ GHOST_DATA = {
 }
 
 # --- 頁面設定 ---
-st.set_page_config(page_title="Paulie Glucose", page_icon="🦁", layout="centered")
+st.set_page_config(page_title="小豹的Glucose監測模型", page_icon="🐈", layout="centered")
 
 if 'history' not in st.session_state:
     st.session_state.history = []
 
 # --- 標題 (精簡化，節省手機螢幕空間) ---
 st.markdown("""
-    <h2 style='color: #2C3E50; text-align: center; margin-bottom: 0;'>🦁 PROJECT PAULIE</h2>
+    <h2 style='color: #2C3E50; text-align: center; margin-bottom: 0;'>🐈 PROJECT PAULIE</h2>
     <p style='color: #7F8C8D; text-align: center; font-size: 14px;'>Clinical Monitoring System v3.4</p>
 """, unsafe_allow_html=True)
 
@@ -69,7 +69,7 @@ with st.container(border=True):
             "Shot_Time": f"+{hours_since_shot}h",
             "Glucose": current_bg
         })
-        st.toast("✅ 數據已更新！", icon="🦁")
+        st.toast("✅ 數據已更新！", icon="🐈")
 
 # ==========================================
 # 📊 結果顯示區
