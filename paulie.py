@@ -41,7 +41,7 @@ st.markdown("""
 # 3. 控制面板 (Control Panel)
 # ==========================================
 with st.container(border=True):
-    st.markdown("**1️⃣ 設定當前狀態**")
+    st.markdown("** 設定當前狀態**")
     
     # 使用 callback 函數來手動更新狀態
     def update_cycle():
