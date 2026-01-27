@@ -1,10 +1,10 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-import os  # 新增：用於處理系統路徑
+import os
 
 # ==========================================
-# 1. 核心參數與數據模型 (2026/1 Clinical Model)
+# 1. 核心參數與數據模型
 # ==========================================
 GHOST_DATA = {
     "Morning": { 
@@ -20,51 +20,55 @@ CARB_FACTOR = 5.0
 TARGET_BG = 150 
 
 # ==========================================
-# 2. 系統初始化 & 狀態鎖定
+# 2. 系統初始化
 # ==========================================
 st.set_page_config(page_title="PAULIE: VECTOR", page_icon="𓃠", layout="centered")
 
 if 'history' not in st.session_state:
     st.session_state.history = []
 
-# 初始化週期狀態 (防止切換時自動重置)
 if 'cycle_index' not in st.session_state:
     current_hour = datetime.now().hour
-    # 預設：7-18點為 Morning (index 0), 其他為 Evening (index 1)
     st.session_state.cycle_index = 0 if 7 <= current_hour < 19 else 1
 
 # ==========================================
-# 3. 標題區 (整合自動導航插畫)
+# 3. 標題區 (Mac 友善版：找不到就手動傳)
 # ==========================================
-# 使用 columns 來讓圖片水平置中
+# 使用 columns 排版
 col_spacer1, col_img, col_spacer2 = st.columns([3, 4, 3])
 
 with col_img:
-    # --- macOS/Windows 自動路徑偵測 ---
-    # 1. 抓取目前這個 .py 檔案所在的資料夾路徑
+    # 1. 先嘗試自動抓取
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    # 2. 組合出圖片的完整路徑 (Mac 會自動用 / 斜線)
     img_path = os.path.join(current_dir, "paulie_logo.png")
     
-    # 3. 嘗試顯示圖片
-    try:
-        if os.path.exists(img_path):
-            st.image(img_path, use_container_width=True)
+    logo_image = None
+    
+    # 檢查檔案是否存在
+    if os.path.exists(img_path):
+        logo_image = img_path
+    
+    # 2. 如果自動抓取失敗，顯示上傳框 (Fallback)
+    if logo_image:
+        st.image(logo_image, use_container_width=True)
+    else:
+        # 這裡就是 Mac 的救星：直接讓你手動選檔案
+        uploaded_logo = st.file_uploader("🖼️ 找不到圖片？請直接拖曳上傳", type=['png', 'jpg', 'jpeg'])
+        if uploaded_logo is not None:
+            st.image(uploaded_logo, use_container_width=True)
         else:
-            st.warning(f"⚠️ 找不到圖片\n系統路徑：{img_path}")
-            st.caption("請確認圖片檔名是否為 paulie_logo.png (注意副檔名)")
-    except Exception as e:
-        st.error(f"圖片讀取錯誤：{e}")
+            # 沒圖也沒上傳時的替代顯示
+            st.markdown("<h1 style='text-align: center;'>🦁</h1>", unsafe_allow_html=True)
 
 # 標題文字
 st.markdown("""
-    <h2 style='color: #2C3E50; text-align: center; letter-spacing: 2px; margin-top: -15px; margin-bottom: 0;'>倪小豹血糖監測儀表板</h2>
-    <p style='color: #95A5A6; text-align: center; font-size: 12px; letter-spacing: 1px;'>TILLNA ANALYSIS SYSTEM v3.0</p>
+    <h2 style='color: #2C3E50; text-align: center; letter-spacing: 2px; margin-top: -10px; margin-bottom: 0;'>倪小豹血糖儀表板</h2>
+    <p style='color: #95A5A6; text-align: center; font-size: 12px; letter-spacing: 1px;'>TILLNA ANALYSIS SYSTEM v4.1</p>
     <hr style='border-top: 1px solid #eee;'>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 4. 控制面板 (Vector Control Panel)
+# 4. 控制面板
 # ==========================================
 with st.container(border=True):
     st.markdown("**設定狀態向量 (Status Vector)**")
@@ -72,7 +76,7 @@ with st.container(border=True):
     period = st.radio(
         "週期",
         ["☀️ Morning", "🌙 Evening"],
-        index=st.session_state.cycle_index, # 使用鎖定狀態
+        index=st.session_state.cycle_index,
         horizontal=True,
         label_visibility="collapsed",
         key="period_radio"
@@ -108,7 +112,7 @@ with st.container(border=True):
         st.toast("✅ System Updated")
 
 # ==========================================
-# 5. 運算核心 (Vector Projection)
+# 5. 運算核心
 # ==========================================
 curve = GHOST_DATA[cycle_key]
 start_idx = int(hours_since_shot)
@@ -123,8 +127,6 @@ for i in range(prediction_hours + 1):
     base_val = curve.get(future_time, 300)
     pred_x.append(f"+{future_time}h")
     ghost_y.append(base_val)
-    
-    # 向量修正：根據趨勢調整預測線斜率
     trend_mod = -20 if "⬇️" in trend else (-10 if "↘️" in trend else (20 if "⬆️" in trend else 0))
     pred_y.append(base_val + offset + (trend_mod * i * 0.5))
 
@@ -134,17 +136,13 @@ st.subheader("📈 臨床預測 (Clinical Projection)")
 st.line_chart(chart_data.set_index("時間軸"), color=["#E74C3C", "#3498DB"])
 
 # ==========================================
-# 6. 邏輯判讀 (Logic Core)
+# 6. 邏輯判讀
 # ==========================================
 st.markdown("### 📋 判讀報告")
-
 status_msg = ""
 status_desc = ""
-
 is_dropping = "下降" in trend
-is_rising = "上升" in trend
 
-# 優先級邏輯 (Priority Protocol)
 if current_bg < 100:
     status_msg = "🚨 **低血糖危險 (Hypoglycemia)**"
     status_desc = "數值危險，請優先急救。"
@@ -155,12 +153,9 @@ elif current_bg < 180:
     else:
         status_msg = f"👁️ **{cycle_key}：觀察區 (Monitor)**"
         status_desc = "數值偏低但趨勢平穩。維持現狀。"
-
-# 修正：高血糖 + 下降優先顯示
 elif current_bg > 300 and is_dropping:
     status_msg = "📉 **有效降糖中 (Effective Drop)**"
     status_desc = f"目前處於 {cycle_key}，但數值正在下降。藥效發揮中，請勿過度干預。"
-
 elif cycle_key == "Morning":
     status_msg = "🛡️ **高抗性期 (High Resistance)**"
     status_desc = "日落期抗性高，數值偏高、下降緩慢為此階段常態。"
@@ -171,7 +166,7 @@ else:
 st.info(f"{status_msg}\n\n{status_desc}")
 
 # ==========================================
-# 7. 飲食建議 (Dietary Protocol)
+# 7. 飲食建議
 # ==========================================
 advice_diet = ""
 param_detail = ""
@@ -182,15 +177,12 @@ if current_bg < 100:
 elif current_bg < 180:
     needed_rise = TARGET_BG - current_bg
     if cycle_key == "Morning":
-        # 安全閥：早上低值 = 觀察 (禁稀釋/禁補粉)
         advice_diet = "👁️ **密切觀察 (不稀釋、不補粉)**"
         param_detail = "早晨抗性高，不建議補粉；數值低，禁止稀釋。"
     else:
-        # 晚上低值 = 計算防禦量
         if needed_rise > 0:
             grams_needed = round(needed_rise / CARB_FACTOR, 1)
             if "快速下降" in trend:
-                # 向量加權
                 grams_needed = round(grams_needed * 1.2, 1)
                 advice_diet = f"🛡️ **加強防禦：餐中添加 {grams_needed}g GI粉**"
                 param_detail = f"趨勢急降，加權1.2倍防禦。"
@@ -205,8 +197,7 @@ elif current_bg < 180:
             param_detail = "安全區間。"
 else:
     if cycle_key == "Morning":
-        # 早上高血糖：只有在非下降趨勢時才建議喝水
-        if is_rising or "平穩" in trend:
+        if "上升" in trend or "平穩" in trend:
              advice_diet = "💧 **標準飲食 + 強化飲水**"
              param_detail = "趨勢向上/持平，建議加強水分代謝。"
         else:
@@ -223,7 +214,7 @@ with st.container(border=True):
     st.caption(f"**邏輯依據:** {param_detail}")
 
 # ==========================================
-# 8. 側邊欄 (Data Export)
+# 8. 下載區
 # ==========================================
 with st.sidebar:
     st.header("System Menu")
