@@ -1,15 +1,15 @@
 import streamlit as st
 
-# --- 頁面設定 ---
+# --- 頁面設定 (瀏覽器標籤頁的名字) ---
 st.set_page_config(
-    page_title="Project NADIR: Paulie Protocol v2.1",
-    page_icon="🐈",
+    page_title="Project Paulie: Overwatch",
+    page_icon="🦁",
     layout="centered"
 )
 
-# --- 標題區 ---
-st.title("🐈 Project NADIR v2.1 (Data-Driven)")
-st.caption("Paulie Protocol | 基於 1/21-1/25 實測數據校正")
+# --- 標題區 (網頁上大大的字) ---
+st.title("🦁 PROJECT PAULIE: OVERWATCH")
+st.caption("Target: Paulie (小豹) | Status: v2.1 Monitoring")
 st.markdown("---")
 
 # --- 側邊欄：輸入戰況 ---
