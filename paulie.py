@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-import streamlit.components.v1 as components # 引入新元件庫用於處理互動
 
 # ==========================================
 # 0. 圖片設定 (Base64)
@@ -26,138 +25,143 @@ CARB_FACTOR = 5.0
 TARGET_BG = 150
 
 # ==========================================
-# 2. 系統初始化 & CSS 修復 (解決黑色區塊)
+# 2. 系統初始化 & 強力視覺修正
 # ==========================================
 st.set_page_config(page_title="倪小豹血糖監控", page_icon="𓃠", layout="centered")
 
+# 準備圖片來源
 img_src = PAULIE_IMG_DATA if len(PAULIE_IMG_DATA) > 50 else ""
 
 st.markdown(f"""
     <style>
-        /* 1. 全局背景：溫暖米色 */
+        /* 1. 全局強制背景色 */
         .stApp {{
             background-color: #F4E3CF !important;
         }}
-
-        /* 2. 內容卡片：保持乾淨的白色懸浮卡片 */
+        
+        /* 2. 卡片區塊：白色半透明 */
         .block-container {{
             background-color: rgba(255, 255, 255, 0.95) !important;
             border-radius: 20px;
-            padding: 30px !important;
-            margin-top: 20px;
-            box-shadow: 0 10px 30px rgba(93, 64, 55, 0.15);
-            max-width: 700px;
-            position: relative;
-            z-index: 10;
+            padding: 2rem !important;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
         }}
 
-        /* --- 核心修復區：強制亮色模式 --- */
+        /* --- 3. 核心修正：暴力去除黑色輸入框 --- */
+        
+        /* 針對數字輸入框 (Number Input) */
+        div[data-baseweb="input"] {{
+            background-color: #FFFFFF !important; /* 強制白底 */
+            border: 1px solid #D0D0D0 !important;
+        }}
+        /* 針對輸入框內的數字顏色 */
+        input[type="number"] {{
+            color: #333333 !important; /* 強制深色字 */
+            background-color: transparent !important;
+        }}
+        /* 針對加減按鈕 */
+        button[data-testid="stNumberInputStepDown"], button[data-testid="stNumberInputStepUp"] {{
+             color: #333333 !important;
+        }}
 
-        /* 3. 強制輸入框 (Number Input) 變白 */
-        [data-baseweb="input"] {{
+        /* 針對下拉選單 (Selectbox) */
+        div[data-baseweb="select"] > div {{
+            background-color: #FFFFFF !important; /* 強制白底 */
+            border: 1px solid #D0D0D0 !important;
+            color: #333333 !important;
+        }}
+        /* 下拉選單內的文字 */
+        div[data-baseweb="select"] span {{
+            color: #333333 !important;
+        }}
+        /* 下拉選單彈出的清單背景 */
+        ul[data-baseweb="menu"] {{
             background-color: #FFFFFF !important;
-            border-color: #E6D0B3 !important;
         }}
-        /* 確保輸入框內的文字是深色 */
-        [data-baseweb="input"] input {{
-            color: #5D4037 !important;
-            -webkit-text-fill-color: #5D4037 !important; /* 修復部分瀏覽器 */
+        /* 清單選項文字 */
+        li[data-baseweb="option"] {{
+            color: #333333 !important;
         }}
 
-        /* 4. 強制下拉選單 (Selectbox) 變白 */
-        [data-baseweb="select"] > div {{
-             background-color: #FFFFFF !important;
-             border-color: #E6D0B3 !important;
-             color: #5D4037 !important;
+        /* 針對圖表背景 (拿掉黑底) */
+        canvas {{
+            filter: invert(0) !important; /* 防止圖表顏色被反轉 */
         }}
-        /* 下拉選單彈出的列表也要變白 */
-        [data-baseweb="menu"] {{
-            background-color: #FFFFFF !important;
-        }}
-        /* 列表選項的文字顏色 */
-        [data-baseweb="menu"] div {{
-             color: #5D4037 !important;
-        }}
-
-        /* 5. 強制圖表背景透明 (解決黑色圖表問題) */
         [data-testid="stVegaLiteChart"] {{
             background-color: transparent !important;
         }}
-        canvas {{
-            background-color: transparent !important;
-        }}
 
-        /* 6. 全局文字顏色修正 */
-        h1, h2, h3, h4, h5, p, span, div, label {{
-            color: #5D4037 !important;
+        /* 4. 全局文字顏色修正 */
+        h1, h2, h3, h4, p, label, span, div {{
+            color: #4A4A4A !important;
         }}
         
-        /* 隱藏預設元素 */
+        /* 隱藏預設 Header/Footer */
         header {{visibility: hidden;}}
         footer {{visibility: hidden;}}
-        
-        .title-text {{
-            text-shadow: 2px 2px 0px #FFFFFF;
-        }}
-    </style>
-""", unsafe_allow_html=True)
 
-# ==========================================
-# 新版互動守護神 (使用 components.html 重構)
-# ==========================================
-# 這種方式能確保 JavaScript 在隔離環境中穩定執行
-if img_src:
-    components.html(f"""
-    <div id="guardian-container" style="
-        position: fixed;
-        bottom: -30px;
-        right: -30px;
-        width: 320px;
-        height: auto;
-        z-index: 1; /* 在最底層 */
-        pointer-events: none; /* 讓滑鼠穿透 */
-    ">
-        <img id="paulie-guardian" src="{img_src}" style="
-            width: 100%;
-            height: auto;
-            filter: drop-shadow(-5px -5px 10px rgba(0,0,0,0.2));
-            transition: transform 0.15s ease-out; /* 讓移動更平滑 */
-            transform-origin: bottom right;
-        ">
-    </div>
+        /* 5. 小豹守護神樣式 (圓形徽章 + 呼吸動畫) */
+        #paulie-guardian {{
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 150px;       /* 設定固定大小 */
+            height: 150px;
+            border-radius: 50%; /* 變成圓形 */
+            border: 5px solid #FFFFFF; /* 白框 */
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            object-fit: cover;  /* 確保圖片填滿圓形不變形 */
+            z-index: 9999;      /* 確保在最上層 */
+            pointer-events: none; /* 讓滑鼠穿透 */
+            transition: transform 0.1s ease-out;
+            animation: breathe 3s infinite ease-in-out; /* 呼吸動畫 */
+        }}
+
+        /* 定義呼吸動畫：讓小豹微微浮動 */
+        @keyframes breathe {{
+            0% {{ transform: translateY(0px) scale(1); }}
+            50% {{ transform: translateY(-10px) scale(1.02); }}
+            100% {{ transform: translateY(0px) scale(1); }}
+        }}
+
+    </style>
+
+    <img id="paulie-guardian" src="{img_src}">
 
     <script>
-        // 在這個 iframe 的 window 中監聽滑鼠
-        window.addEventListener('mousemove', function(e) {{
-            const paulie = document.getElementById('paulie-guardian');
+    // 嘗試在父層視窗監聽滑鼠
+    try {{
+        parent.document.addEventListener('mousemove', function(e) {{
+            const paulie = parent.document.getElementById('paulie-guardian');
             if (paulie) {{
-                // 取得 iframe 的視窗大小
+                // 停止 CSS 動畫以免衝突
+                paulie.style.animation = 'none';
+                
                 const w = window.innerWidth;
                 const h = window.innerHeight;
-                
-                // 取得滑鼠在 iframe 中的位置
                 const mouseX = e.clientX;
                 const mouseY = e.clientY;
                 
-                // 計算移動量 (調整係數 0.04 控制靈敏度)
-                // 這裡改成相對於視窗中心的偏移，效果更自然
-                const moveX = (mouseX - w/2) * 0.04;
-                const moveY = (mouseY - h/2) * 0.04;
-
-                // 應用移動變形
-                paulie.style.transform = `translate(${{moveX}}px, ${{moveY}}px) scale(1.02)`;
+                // 計算位移
+                const moveX = (mouseX - w) * 0.05;
+                const moveY = (mouseY - h) * 0.05;
+                
+                paulie.style.transform = `translate(${{moveX}}px, ${{moveY}}px)`;
             }}
         }});
         
-        // 滑鼠離開時復原
-        window.addEventListener('mouseout', function(e) {{
-             const paulie = document.getElementById('paulie-guardian');
+        // 滑鼠離開時恢復呼吸動畫
+        parent.document.addEventListener('mouseout', function() {{
+             const paulie = parent.document.getElementById('paulie-guardian');
              if (paulie) {{
-                 paulie.style.transform = 'translate(0px, 0px)';
+                 paulie.style.animation = 'breathe 3s infinite ease-in-out';
              }}
         }});
+    }} catch(e) {{
+        console.log("Mouse tracking blocked by sandbox, keeping breathing animation.");
+    }}
     </script>
-    """, height=0, width=0) # 高寬設為 0 以隱藏 iframe 本身，只顯示 fixed 的圖片
+""", unsafe_allow_html=True)
 
 
 if 'history' not in st.session_state:
@@ -170,7 +174,7 @@ if 'cycle_index' not in st.session_state:
 # 3. 標題區
 # ==========================================
 st.markdown("""
-    <h1 class='title-text' style='
+    <h1 style='
         color: #E74C3C !important;
         text-align: center;
         font-family: "Microsoft JhengHei", sans-serif;
@@ -178,10 +182,10 @@ st.markdown("""
         margin-bottom: 0;
         letter-spacing: 2px;
     '>
-        倪小豹血糖向量監控
+        小豹血糖監控
     </h1>
     <p style='text-align: center; font-size: 14px; opacity: 0.6; margin-top: 5px;'>
-        TILLNA ANALYSIS v5.0
+        TILLNA UPGRADE v7.2
     </p>
     <hr style='border-top: 2px solid #E74C3C; opacity: 0.3; margin-bottom: 20px;'>
 """, unsafe_allow_html=True)
@@ -193,7 +197,7 @@ st.markdown("#### 設定狀態向量")
 
 period = st.radio(
     "週期",
-    ["☀️ Morning ", "🌙 Evening "],
+    ["☀️ Morning (白天)", "🌙 Evening (夜間)"],
     index=st.session_state.cycle_index,
     horizontal=True,
     label_visibility="collapsed",
