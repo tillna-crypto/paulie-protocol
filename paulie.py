@@ -58,8 +58,8 @@ with col_img:
 
 # 標題文字
 st.markdown("""
-    <h2 style='color: #2C3E50; text-align: center; letter-spacing: 2px; margin-top: -15px; margin-bottom: 0;'>倪小豹血糖專屬儀表板</h2>
-    <p style='color: #95A5A6; text-align: center; font-size: 12px; letter-spacing: 1px;'>TILLNA ANALYSIS SYSTEM v3.9</p>
+    <h2 style='color: #2C3E50; text-align: center; letter-spacing: 2px; margin-top: -15px; margin-bottom: 0;'>倪小豹血糖儀表板</h2>
+    <p style='color: #95A5A6; text-align: center; font-size: 12px; letter-spacing: 1px;'>TILLNA ANALYSIS SYSTEM v2.0</p>
     <hr style='border-top: 1px solid #eee;'>
 """, unsafe_allow_html=True)
 
@@ -67,7 +67,7 @@ st.markdown("""
 # 4. 控制面板 (Vector Control Panel)
 # ==========================================
 with st.container(border=True):
-    st.markdown("**1️⃣ 設定狀態向量 (Status Vector)**")
+    st.markdown("**設定狀態向量 (Status Vector)**")
     
     period = st.radio(
         "週期",
@@ -192,42 +192,4 @@ elif current_bg < 180:
             if "快速下降" in trend:
                 # 向量加權
                 grams_needed = round(grams_needed * 1.2, 1)
-                advice_diet = f"🛡️ **加強防禦：餐中添加 {grams_needed}g GI粉**"
-                param_detail = f"趨勢急降，加權1.2倍防禦。"
-            elif is_dropping:
-                 advice_diet = f"🛡️ **防禦性補食：餐中添加 {grams_needed}g GI粉**"
-                 param_detail = f"趨勢緩降，補足差額。"
-            else:
-                 advice_diet = "✅ **標準飲食 (或極少量補粉)**"
-                 param_detail = "數值低但平穩，可維持正常。"
-        else:
-            advice_diet = "✅ **標準飲食**"
-            param_detail = "安全區間。"
-else:
-    if cycle_key == "Morning":
-        # 早上高血糖：只有在非下降趨勢時才建議喝水
-        if is_rising or "平穩" in trend:
-             advice_diet = "💧 **標準飲食 + 強化飲水**"
-             param_detail = "趨勢向上/持平，建議加強水分代謝。"
-        else:
-             advice_diet = "✅ **標準飲食 (暫不強迫飲水)**"
-             param_detail = "趨勢正在下降 (有效降糖中)，讓身體自然代謝。"
-    else:
-        advice_diet = "✅ **標準飲食**"
-        param_detail = "維持正常。"
-
-st.markdown("### 🍽️ 下一餐飲食建議")
-with st.container(border=True):
-    st.markdown(f"#### {advice_diet}")
-    st.markdown("---")
-    st.caption(f"**邏輯依據:** {param_detail}")
-
-# ==========================================
-# 8. 側邊欄 (Data Export)
-# ==========================================
-with st.sidebar:
-    st.header("System Menu")
-    if st.session_state.history:
-        df_export = pd.DataFrame(st.session_state.history)
-        csv = df_export.to_csv(index=False).encode('utf-8')
-        st.download_button("📥 下載紀錄 (CSV)", csv, f"vector_log_{datetime.now().strftime('%Y%m%d')}.csv", "text/csv")
+                advice_diet = f"🛡️ **加強防禦：
