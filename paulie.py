@@ -28,19 +28,19 @@ GHOST_DATA = {
 def get_urine_ghost(weight_kg, hours_passed):
     """
     計算標準尿量累積曲線 (Physiological Output)
-    標準值：約 1-2 ml/kg/hr。取中間值 1.5 ml 來畫標準線。
+    標準值：約 1.5 ml/kg/hr
     """
-    rate = 1.5 * weight_kg # 每小時預期產量
+    rate = 1.5 * weight_kg # 每小時預期產量 (ml)
     expected_total = rate * hours_passed
     return expected_total, rate
 
-def get_urine_matrix(actual_cumulative, expected_cumulative):
+def get_urine_matrix(actual_liquid_ml, expected_cumulative):
     """
-    尿量紅綠燈判讀
+    尿量紅綠燈判讀 (比對的是 '還原後的液體量')
     """
     if expected_cumulative == 0: return "⏳ 等待數據", "週期剛開始"
     
-    ratio = actual_cumulative / expected_cumulative
+    ratio = actual_liquid_ml / expected_cumulative
     
     if ratio < 0.5:
         return "⚠️ 產量過少 (Oliguria)", "可能脫水或尿液滯留，請檢查膀胱或增加飲水。"
@@ -49,7 +49,7 @@ def get_urine_matrix(actual_cumulative, expected_cumulative):
     else:
         return "✅ 功能正常 (Normal)", "腎臟過濾與水分代謝平衡。"
 
-# 血糖決策矩陣 (維持 v9.2)
+# 血糖決策矩陣
 def get_decision_matrix(bg, trend, hours, cycle):
     if bg < 100:
         return "🚨 急救 (Emergency)", "給予蜂蜜/糖漿 + 3g GI粉 (立刻)", "Critical Low"
@@ -75,9 +75,9 @@ def get_decision_matrix(bg, trend, hours, cycle):
     return "📝 紀錄 (Log)", "持續監控", "Normal"
 
 # ==========================================
-# 2. 系統初始化 & CSS (維持 v9.2 強力亮色)
+# 2. 系統初始化 & CSS (介面調整)
 # ==========================================
-st.set_page_config(page_title="小豹專屬儀表板 v9.0", page_icon="𓃠", layout="centered")
+st.set_page_config(page_title="小豹專屬儀表板 v5.0", page_icon="𓃠", layout="centered")
 
 img_src = PAULIE_IMG_DATA if len(PAULIE_IMG_DATA) > 50 else ""
 
@@ -124,7 +124,8 @@ st.markdown(f"""
             padding: 15px; border-radius: 5px; margin-bottom: 20px;
         }}
         .urine-card {{
-            background-color: #EBF5FB; /* 淺藍色背景 */
+            background-color: #FFFFFF; /* 改為純白底 */
+            border: 1px solid #E0E0E0; /* 加個細邊框 */
             border-left: 5px solid #3498DB;
             padding: 15px; border-radius: 5px; margin-bottom: 20px;
         }}
@@ -144,8 +145,8 @@ if 'cycle_index' not in st.session_state:
 # 3. 標題與設定
 # ==========================================
 st.markdown("""
-    <h1 style='text-align: center; color: #E74C3C !important; margin-top:0;'>倪小豹雙軌監控</h1>
-    <p style='text-align: center; font-size: 14px; opacity: 0.6;'>GLUCOSE + URINE ALGORITHM v9</p>
+    <h1 style='text-align: center; color: #E74C3C !important; margin-top:0;'>小豹專屬儀表板</h1>
+    <p style='text-align: center; font-size: 14px; opacity: 0.6;'>GLUCOSE + PRECISE URINE v5.0</p>
     <hr style='border-top: 2px solid #E74C3C; opacity: 0.3; margin-bottom: 20px;'>
 """, unsafe_allow_html=True)
 
@@ -153,13 +154,15 @@ st.markdown("""
 with st.sidebar:
     st.header("⚙️ 演算法參數")
     cat_weight = st.number_input("小豹體重 (kg)", 1.0, 10.0, 5.0, 0.1)
-    st.caption("體重將影響標準尿量計算 (Target: 1.5ml/kg/hr)")
+    st.caption("體重影響標準尿量 (Target: 1.5ml/kg/hr)")
+    st.divider()
+    st.info("💧 尿量公式：\n(尿塊 / 2.6) * 1.6")
 
 # ==========================================
 # 4. 輸入面板 (雙軌輸入)
 # ==========================================
-st.markdown("#### 狀態輸入 (Input)")
-period = st.radio("週期", ["☀️ Morning (日間)", "🌙 Evening (夜間)"], index=st.session_state.cycle_index, horizontal=True)
+st.markdown("#### 1️⃣ 狀態輸入 (Input)")
+period = st.radio("週期", ["☀️ Morning (日落期)", "🌙 Evening (夜間期)"], index=st.session_state.cycle_index, horizontal=True)
 cycle_key = "Morning" if "Morning" in period else "Evening"
 
 st.markdown("---")
@@ -181,12 +184,14 @@ trend = st.selectbox("趨勢向量",
 
 # 下半部：尿量 (藍色系)
 st.markdown("---")
-st.markdown("**💧 尿量紀錄 (選填)**")
+st.markdown("**💧 尿塊紀錄 (Litter Clump)**")
 col3, col4 = st.columns([2, 1])
 with col3:
-    urine_output = st.number_input("本次尿球重量 (g)", 0, 500, 0, step=1, help="如果沒有尿尿請填 0")
+    urine_clump = st.number_input("本次尿塊重量 (g)", 0, 500, 0, step=1, help="請輸入含貓砂的重量")
 with col4:
-    st.caption("將自動累加至本週期總量")
+    # 即時顯示換算結果
+    calc_liquid = (urine_clump / 2.6) * 1.6
+    st.markdown(f"<p style='margin-top: 30px; font-size: 14px;'>≈ {calc_liquid:.1f} ml 液體</p>", unsafe_allow_html=True)
 
 # ==========================================
 # 5. 決策與運算 (Processing)
@@ -195,18 +200,19 @@ with col4:
 # A. 血糖矩陣運算
 matrix_action, matrix_detail, matrix_tag = get_decision_matrix(current_bg, trend, hours_since_shot, cycle_key)
 
-# B. 尿量累積運算 (從歷史紀錄抓取當前週期的總和)
-current_cycle_urine = 0
+# B. 尿量累積運算 (需還原成液體量累積)
+current_cycle_liquid = 0
 for record in st.session_state.history:
-    # 簡單過濾：如果是今天的同一個週期 (這裡做簡易模擬，實務上需精確比對日期)
     if record.get("Cycle") == cycle_key:
-        current_cycle_urine += record.get("Urine", 0)
-# 加上本次輸入 (如果是預覽，還沒存入 history，先加起來看 ghost)
-preview_total_urine = current_cycle_urine + urine_output
+        # 讀取歷史紀錄中的「液體量」
+        current_cycle_liquid += record.get("Urine_Liquid", 0)
+
+# 加上本次輸入 (換算後)
+preview_total_liquid = current_cycle_liquid + calc_liquid
 
 # C. 尿量 Ghost 運算
-expected_urine, rate = get_urine_ghost(cat_weight, hours_since_shot)
-urine_status, urine_msg = get_urine_matrix(preview_total_urine, expected_urine)
+expected_liquid, rate = get_urine_ghost(cat_weight, hours_since_shot)
+urine_status, urine_msg = get_urine_matrix(preview_total_liquid, expected_liquid)
 
 # ==========================================
 # 6. 顯示結果 (Dashboard)
@@ -220,7 +226,8 @@ if st.button("💾 雙軌記錄並執行 (Log All)", type="primary", use_contain
         "Shot_Time": f"+{hours_since_shot}h",
         "Glucose": current_bg,
         "Trend": trend.split(" ")[0],
-        "Urine": urine_output, # 新增尿量欄位
+        "Urine_Clump": urine_clump,     # 記錄原始貓砂重
+        "Urine_Liquid": calc_liquid,    # 記錄換算後液體重
         "Decision": matrix_action
     })
     st.toast("✅ 數據已更新：血糖 + 尿量")
@@ -234,14 +241,13 @@ st.markdown(f"""
     </div>
 """, unsafe_allow_html=True)
 
-# --- 卡片 2: 尿量演算法 (新增) ---
-# 只有在有輸入尿量或累積尿量 > 0 時才顯示詳細分析，避免干擾
-if preview_total_urine > 0 or hours_since_shot > 1:
+# --- 卡片 2: 尿量演算法 (純白底) ---
+if preview_total_liquid > 0 or hours_since_shot > 1:
     st.markdown(f"""
         <div class="urine-card">
             <h3 style="margin:0; color: #2980B9 !important;">{urine_status}</h3>
             <p style="margin:5px 0 0 0; color:#333 !important;">
-                <b>目前累積：</b> {preview_total_urine} g (標準: ~{int(expected_urine)} g)<br>
+                <b>液體累積 (Liquid)：</b> {preview_total_liquid:.1f} ml <span style='font-size:12px; color:#999'>(標準: ~{int(expected_liquid)} ml)</span><br>
                 <b>分析：</b> {urine_msg}
             </p>
         </div>
@@ -251,7 +257,7 @@ if preview_total_urine > 0 or hours_since_shot > 1:
 # 7. 視覺化圖表 (雙圖表)
 # ==========================================
 
-# 圖表 A: 血糖趨勢 (Line Chart)
+# 圖表 A: 血糖趨勢
 curve = GHOST_DATA[cycle_key]
 start_idx = int(hours_since_shot)
 prediction_hours = 4
@@ -283,34 +289,31 @@ bg_chart = alt.Chart(bg_data).mark_line(point=True).encode(
 st.altair_chart(bg_chart, use_container_width=True)
 
 
-# 圖表 B: 尿量監控 (Bar + Line)
-st.subheader("💧 尿量演算法 (Urine Ghost)")
+# 圖表 B: 尿量監控 (比較的是液體量)
+st.subheader("💧 尿量演算法 (Liquid Ghost)")
 
-# 製作累積尿量圖表數據
-urine_hours = list(range(0, 13)) # 0-12小時
-urine_ghost_vals = [rate * h for h in urine_hours] # 標準累積線
+urine_hours = list(range(0, 13))
+urine_ghost_vals = [rate * h for h in urine_hours]
 urine_chart_data = pd.DataFrame({
     "時間 (hr)": urine_hours,
-    "標準累積 (g)": urine_ghost_vals
+    "標準累積 (ml)": urine_ghost_vals
 })
 
-# 這裡我們畫一條標準線，並標示目前的落點
 base_urine_chart = alt.Chart(urine_chart_data).mark_line(color='#3498DB', strokeDash=[5,5]).encode(
     x=alt.X('時間 (hr)', axis=alt.Axis(tickCount=12)),
-    y=alt.Y('標準累積 (g)'),
-    tooltip=['時間 (hr)', '標準累積 (g)']
+    y=alt.Y('標準累積 (ml)'),
+    tooltip=['時間 (hr)', '標準累積 (ml)']
 )
 
-# 當前落點 (只畫一個點)
 current_point_data = pd.DataFrame({
     "時間 (hr)": [hours_since_shot],
-    "實際累積 (g)": [preview_total_urine],
-    "狀態": [urine_status.split(" ")[0]] # 取出圖示
+    "實際累積 (ml)": [preview_total_liquid],
+    "狀態": [urine_status.split(" ")[0]]
 })
 point_chart = alt.Chart(current_point_data).mark_circle(size=200, color='#E74C3C').encode(
     x='時間 (hr)',
-    y='實際累積 (g)',
-    tooltip=['實際累積 (g)', '狀態']
+    y='實際累積 (ml)',
+    tooltip=['實際累積 (ml)', '狀態']
 )
 
 st.altair_chart(base_urine_chart + point_chart, use_container_width=True)
