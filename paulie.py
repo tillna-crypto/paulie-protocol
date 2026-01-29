@@ -6,7 +6,7 @@ from datetime import datetime
 # ==========================================
 # 1. 系統設定 (必須放在第一行)
 # ==========================================
-st.set_page_config(page_title="小豹血糖儀表板 v7", page_icon="𓃠", layout="centered")
+st.set_page_config(page_title="Paulie BioGauge 血糖領航員", page_icon="𓃠", layout="centered")
 
 # ==========================================
 # 2. 核心參數 & 圖片
@@ -26,51 +26,67 @@ GHOST_DATA = {
 }
 
 # ==========================================
-# 3. 內建儀表板繪圖引擎 (CSS Gauge) - 免安裝 Plotly
+# 3. 升級版儀表板繪圖引擎 (BioGauge CSS)
 # ==========================================
-def render_css_gauge(value):
-    # 限制數值範圍在 0-500
+def render_biogauge(value):
+    # 限制數值範圍
     clamped_value = max(0, min(500, value))
-    # 計算角度: 0對應-90度, 500對應90度
     rotation = (clamped_value / 500) * 180 - 90
     
-    # 根據數值決定指針顏色
-    needle_color = "#E74C3C" # 紅 (預設)
-    if 100 <= value <= 180: needle_color = "#2ECC71" # 綠
-    elif 180 < value <= 250: needle_color = "#F1C40F" # 黃
+    # 決定顏色與狀態文字
+    if value < 100:
+        needle_color = "#E74C3C" # 紅
+        status_text = "⚠️ 低血糖危險區"
+        status_color = "#E74C3C"
+    elif 100 <= value <= 180:
+        needle_color = "#2ECC71" # 綠
+        status_text = "✅ 完美安全區"
+        status_color = "#27AE60"
+    elif 180 < value <= 250:
+        needle_color = "#F1C40F" # 黃
+        status_text = "⚠️ 警戒緩衝區"
+        status_color = "#D4AC0D"
+    else:
+        needle_color = "#E74C3C" # 紅
+        status_text = "🔥 高血糖排出區"
+        status_color = "#C0392B"
     
-    # CSS 語法
     html_code = f"""
-    <div style="width: 100%; display: flex; flex-direction: column; align-items: center; margin-bottom: 10px;">
-        <div style="position: relative; width: 300px; height: 150px; overflow: hidden;">
+    <div style="width: 100%; display: flex; flex-direction: column; align-items: center; margin-bottom: 20px; position: relative;">
+        
+        <div style="position: relative; width: 320px; height: 160px; overflow: hidden;">
             <div style="
-                width: 300px; height: 150px;
+                width: 320px; height: 160px;
                 background: conic-gradient(from 270deg, 
                     #E74C3C 0% 20%,    /* 0-100: 危險紅 */
                     #2ECC71 20% 36%,   /* 100-180: 安全綠 */
                     #F1C40F 36% 50%,   /* 180-250: 警戒黃 */
                     #C0392B 50% 100%   /* 250+: 高壓紅 */
                 );
-                border-radius: 150px 150px 0 0;
+                border-radius: 160px 160px 0 0;
                 opacity: 0.9;
             "></div>
             
+            <div style="position: absolute; top: 110px; left: 65px; color: white; font-weight:bold; font-size:12px; text-shadow: 1px 1px 2px black;">100</div>
+            <div style="position: absolute; top: 60px; left: 115px; color: white; font-weight:bold; font-size:12px; text-shadow: 1px 1px 2px black;">180</div>
+            <div style="position: absolute; top: 35px; left: 160px; color: white; font-weight:bold; font-size:12px; text-shadow: 1px 1px 2px black;">250</div>
+            
             <div style="
                 position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
-                width: 220px; height: 110px;
+                width: 240px; height: 120px;
                 background-color: #FFFFFF;
-                border-radius: 110px 110px 0 0;
+                border-radius: 120px 120px 0 0;
             "></div>
             
             <div style="
                 position: absolute; bottom: 0; left: 50%;
-                width: 6px; height: 130px;
+                width: 6px; height: 140px;
                 background-color: {needle_color};
                 transform-origin: bottom center;
                 transform: translateX(-50%) rotate({rotation}deg);
                 z-index: 10;
                 border-radius: 3px;
-                transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+                transition: transform 0.5s ease-out;
                 box-shadow: 0 2px 5px rgba(0,0,0,0.3);
             "></div>
             
@@ -83,9 +99,17 @@ def render_css_gauge(value):
                 border: 3px solid #FFF;
             "></div>
         </div>
+
         <div style="text-align: center; margin-top: -10px; z-index: 12;">
-            <div style="font-size: 48px; font-weight: 800; color: #4A4A4A; line-height: 1;">{value}</div>
-            <div style="font-size: 16px; color: #888; font-weight: 500;">mg/dL</div>
+            <div style="font-size: 56px; font-weight: 800; color: #4A4A4A; line-height: 1;">{value}</div>
+            <div style="font-size: 14px; color: #999; margin-bottom: 5px;">mg/dL</div>
+            <div style="
+                background-color: {status_color}; color: white; 
+                padding: 4px 12px; border-radius: 15px; font-size: 14px; font-weight: bold;
+                display: inline-block; box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            ">
+                {status_text}
+            </div>
         </div>
     </div>
     """
@@ -120,7 +144,7 @@ def get_decision_matrix(bg, trend, hours, cycle):
     return "📝 紀錄", "持續監控", "Normal"
 
 # ==========================================
-# 5. CSS 美化
+# 5. CSS 核彈級美化 (修正黑色輸入框)
 # ==========================================
 img_src = PAULIE_IMG_DATA if len(PAULIE_IMG_DATA) > 50 else ""
 
@@ -137,15 +161,38 @@ st.markdown(f"""
         }}
         header, footer {{visibility: hidden;}}
         
-        div[data-baseweb="input"], div[data-baseweb="select"] > div {{
-            background-color: #F9F9F9 !important; border: 1px solid #E0E0E0 !important; color: #333 !important;
+        /* --- 修正黑色 Trend 輸入框的關鍵 CSS --- */
+        /* 強制所有 Select box 的容器背景為白 */
+        div[data-baseweb="select"] > div {{
+            background-color: #FFFFFF !important;
+            color: #333333 !important;
+            border: 1px solid #E0E0E0 !important;
         }}
-        input, p, label, span, div {{ color: #4A4A4A !important; }}
+        /* 強制 Select box 內的文字顏色 */
+        div[data-baseweb="select"] span {{
+            color: #333333 !important;
+        }}
+        /* 強制下拉選單的選項背景 */
+        ul[data-baseweb="menu"] {{
+            background-color: #FFFFFF !important;
+        }}
+        li[data-baseweb="option"] {{
+            color: #333333 !important;
+        }}
+        
+        /* 修正數字輸入框 */
+        div[data-baseweb="input"] {{
+            background-color: #F9F9F9 !important; border: 1px solid #E0E0E0 !important;
+        }}
+        input {{ color: #4A4A4A !important; }}
+        
+        /* 一般文字顏色 */
+        h1, h2, h3, p, label, span, div {{ color: #4A4A4A !important; }}
         
         /* 小豹頭像 */
         #paulie-avatar {{
             display: block; margin: 0 auto 10px auto;
-            width: 100px; height: 100px; border-radius: 50%;
+            width: 90px; height: 90px; border-radius: 50%;
             border: 4px solid #FFF; box-shadow: 0 5px 15px rgba(0,0,0,0.1);
             object-fit: cover;
         }}
@@ -161,7 +208,7 @@ st.markdown(f"""
         .status-yellow {{ background-color: #FEF9E7; border-left: 5px solid #F1C40F; color: #D4AC0D; }}
     </style>
     <img id="paulie-avatar" src="{img_src}">
-    <h2 style='text-align: center; margin:0; color:#4A4A4A; font-size: 1.5rem;'>Paulie Monitor v12</h2>
+    <h2 style='text-align: center; margin:0; color:#4A4A4A; font-family: sans-serif; font-size: 1.6rem; letter-spacing: 1px;'>Paulie BioGauge</h2>
 """, unsafe_allow_html=True)
 
 if 'history' not in st.session_state: st.session_state.history = []
@@ -172,7 +219,7 @@ if 'cycle_index' not in st.session_state:
 # 6. 數據輸入區 (Expander)
 # ==========================================
 # 預設展開，方便輸入
-with st.expander("📝 點擊輸入數據 (Data Entry)", expanded=True):
+with st.expander("📝 數據輸入 (Data Entry)", expanded=True):
     period = st.radio("週期", ["☀️ Morning", "🌙 Evening"], index=st.session_state.cycle_index, horizontal=True)
     cycle_key = "Morning" if "Morning" in period else "Evening"
     
@@ -208,8 +255,8 @@ urine_status, urine_msg = get_urine_matrix(preview_total_liquid, expected_liquid
 # 8. 儀表板與卡片 (Dashboard)
 # ==========================================
 
-# A. 顯示 CSS 儀表板 (免安裝神器)
-st.markdown(render_css_gauge(current_bg), unsafe_allow_html=True)
+# A. 顯示 BioGauge 儀表板
+st.markdown(render_biogauge(current_bg), unsafe_allow_html=True)
 
 # B. 決策卡片
 card_color = "status-red" if "急救" in matrix_action or "煞車" in matrix_action else ("status-yellow" if "觀察" in matrix_action else "status-green")
