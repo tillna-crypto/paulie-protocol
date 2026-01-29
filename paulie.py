@@ -113,7 +113,7 @@ with c_head1:
     else:
         st.markdown("# 𓃠")
 with c_head2:
-    st.title("Paulie BioScout 血糖偵查器")
+    st.title("BioScout 小豹血糖偵查器")
     st.caption("TILLNA DATA DRIVEN v10")
 
 st.divider()
