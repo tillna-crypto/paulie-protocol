@@ -114,7 +114,7 @@ with c_head1:
         st.markdown("# 𓃠")
 with c_head2:
     st.title("Paulie BioScout")
-    st.caption("血糖偵查器 (v25.0)")
+    st.caption("TILLNA DATA DRIVEN v10")
 
 st.divider()
 
