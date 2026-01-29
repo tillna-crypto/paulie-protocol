@@ -7,7 +7,7 @@ from datetime import datetime
 # ==========================================
 # 1. 系統設定 (強制亮色配置)
 # ==========================================
-st.set_page_config(page_title="Paulie BioGauge 血糖領航員", page_icon="𓃠", layout="centered")
+st.set_page_config(page_title="小豹血糖領航員 v10", page_icon="𓃠", layout="centered")
 
 # ==========================================
 # 2. 圖片與 CSS (強制瀏覽器 Light Mode)
