@@ -85,7 +85,8 @@ with st.sidebar:
     
     page = st.radio("功能切換：", [PAGE_MONITOR, PAGE_RECORD])
     st.divider()
-    st.caption("Patient: Paulie 𓃠")
+    st.caption("Patient: 倪小豹 𓃠")
+    st.caption("Doctor: 蔣雨青 🧑‍⚕️")
 
 # ==========================================
 # 5. 頁面 A: 偵查儀表板
