@@ -149,7 +149,7 @@ elif page == PAGE_RECORD:
     
     st.title("🏥 醫療回診紀錄")
 
-    with st.expander("📋 Paulie 居家摘要", expanded=False):
+    with st.expander("📋 倪小豹居家摘要", expanded=False):
         last_bg = st.session_state.history[-1]['Glucose'] if st.session_state.history else "無"
         last_urine = st.session_state.history[-1]['Liquid'] if st.session_state.history else "無"
         st.info(f"**重點追蹤：**\n1. 血糖波動 (最近: {last_bg})\n2. 尿量狀況 (最近: {last_urine}ml)\n3. 肌肉注射觀察")
