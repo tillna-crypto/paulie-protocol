@@ -106,12 +106,12 @@ with st.sidebar:
     st.caption("Patient: 倪小豹")
 
 # ==========================================
-# 5. 頁面 A: 偵查儀表板
+# 5. 頁面 A: 血糖偵查板
 # ==========================================
 if page == "血糖偵查板":
     
     c1, c2 = st.columns([4, 1])
-    with c1: st.title("Live Monitor"); st.caption("即時戰情室")
+    with c1: st.title("小豹血糖分析"); st.caption("即時戰情室")
     with c2: st.markdown("## 📊")
 
     st.divider()
