@@ -10,11 +10,11 @@ def upload_to_drive(file_obj, folder_id):
     try:
         from googleapiclient.discovery import build
         from googleapiclient.http import MediaIoBaseUpload
-        from oauth2client.service_account import ServiceAccountCredentials
         import io
         import streamlit as st
+        from oauth2client.service_account import ServiceAccountCredentials
 
-        # 這裡直接在函數內部拿鑰匙，不靠外面傳
+        # 重新建立連線 (確保在函數內可用)
         s = st.secrets["gcp_service_account"]
         pk = s["private_key"].replace("\\n", "\n")
         info = {
@@ -35,8 +35,15 @@ def upload_to_drive(file_obj, folder_id):
         service = build('drive', 'v3', credentials=creds)
         file_metadata = {'name': file_obj.name, 'parents': [folder_id]}
         media = MediaIoBaseUpload(io.BytesIO(file_obj.read()), mimetype=file_obj.type)
-        file = service.files().create(body=file_metadata, media_body=media, fields='id, webViewLink').execute()
-        service.permissions().create(fileId=file.get('id'), body={'type': 'anyone', 'role': 'reader'}).execute()
+        
+        # 加上 supportsAllDrives=True 來避開 Quota 限制
+        file = service.files().create(
+            body=file_metadata, 
+            media_body=media, 
+            fields='id, webViewLink',
+            supportsAllDrives=True 
+        ).execute()
+        
         return file.get('webViewLink')
     except Exception as e:
         return f"上傳失敗: {str(e)}"
@@ -280,42 +287,24 @@ uploaded_file = st.file_uploader("上傳病歷照片", type=['png', 'jpg', 'jpeg
 if st.button("💾 封存病歷與附件", type="primary", use_container_width=True):
         with st.spinner("同步至雲端中..."):
             try:
-                # 1. 建立連線鑰匙 (creds)
-                s = st.secrets["gcp_service_account"]
-                pk = s["private_key"].replace("\\n", "\n")
-                info = {
-                    "type": "service_account",
-                    "project_id": s["project_id"],
-                    "private_key_id": s["private_key_id"],
-                    "private_key": pk,
-                    "client_email": s["client_email"],
-                    "client_id": s["client_id"],
-                    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                    "token_uri": "https://oauth2.googleapis.com/token",
-                    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-                    "client_x509_cert_url": s["client_x509_cert_url"]
-                }
-                from oauth2client.service_account import ServiceAccountCredentials
-                scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-                creds = ServiceAccountCredentials.from_json_keyfile_dict(info, scope)
-                
-                # 2. 處理檔案上傳 (這就是您缺少的關鍵兩行)
+                # 1. 處理檔案上傳 (呼叫函數時只給 2 個東西)
                 file_url = "無附件"
                 if uploaded_file:
-                    # 傳入 3 個參數：檔案物件、資料夾ID、鑰匙
                     file_url = upload_to_drive(uploaded_file, "1tjd37853ebjxZMMQQR__tKanyWu9WMlH")
                 
-                # 3. 準備寫入表格的資料 (最後一欄放 file_url)
+                # 2. 準備寫入表格的資料 (最後一欄一定要有 file_url)
                 row_data = [
-                    str(visit_date), val_bun, val_cre, val_sdma, val_alt, val_alkp, 
-                    val_phos, val_k, val_na, val_cl, val_ca, 
-                    val_rbc, val_wbc, val_hct, val_a1c, doc_notes, file_url
+                    str(visit_date), val_bun, val_cre, val_sdma, 0, 0, 
+                    val_phos, val_k, 0, 0, val_ca, 
+                    val_rbc, val_wbc, val_hct, 0, doc_notes, file_url
                 ]
                 
-                # 4. 執行存檔到 Google Sheet
+                # 3. 執行存檔 (Sheet2 索引為 1)
                 success, msg = save_to_google_sheet(row_data, 1)
+                
                 if success:
-                    st.toast("✅ 病歷與照片已封存！")
+                    st.success("✅ 病歷與照片已封存！")
+                    st.balloons()
                 else:
                     st.error(f"❌ 存檔失敗: {msg}")
             except Exception as e:
