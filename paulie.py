@@ -28,40 +28,25 @@ SHEET_NAME = "Paulie_BioScout_DB"
 KEY_FILE = "service_account.json"
 
 def save_to_google_sheet(data_row, sheet_tab_index=0):
-    """
-    將一筆資料寫入 Google Sheet
-    sheet_tab_index: 0=血糖監測, 1=醫療病歷
-    """
     try:
         scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-        
-        # --- 🟢 雲端金鑰邏輯核心 ---
         has_key_file = os.path.exists(KEY_FILE)
         has_secrets = "gcp_service_account" in st.secrets
 
         if has_key_file:
-            # 優先使用本地檔案
             creds = ServiceAccountCredentials.from_json_keyfile_name(KEY_FILE, scope)
         elif has_secrets:
-            # 檔案不存在時，嘗試讀取 Streamlit Secrets
             creds_info = dict(st.secrets["gcp_service_account"])
-            # 修正換行符號問題
             if "\\n" in creds_info["private_key"]:
                 creds_info["private_key"] = creds_info["private_key"].replace("\\n", "\n")
             creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_info, scope)
         else:
-            return False, "找不到鑰匙來源 (本地無檔案且雲端無 Secrets)"
+            return False, "No key could be detected."
         
         client = gspread.authorize(creds)
-        
-        try:
-            sheet = client.open(SHEET_NAME).get_worksheet(sheet_tab_index)
-        except gspread.SpreadsheetNotFound:
-            return False, f"找不到雲端試算表：{SHEET_NAME}"
-        
+        sheet = client.open(SHEET_NAME).get_worksheet(sheet_tab_index)
         sheet.append_row(data_row)
         return True, "成功"
-        
     except Exception as e:
         return False, str(e)
 
