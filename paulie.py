@@ -194,11 +194,7 @@ if page == PAGE_MONITOR:
         with col2:
             urine_clump = st.number_input("💧 尿塊重 (g)", 0, 500, 0)
             cat_weight = st.number_input("⚖️ 體重 (kg)", 1.0, 10.0, 5.0, 0.1)
-            period = st.radio(
-    "上次施打胰島素時間：", 
-    ["☀️ 早上施打", "🌙 晚上施打"], 
-    horizontal=True
-)
+            period = st.radio("上次施打胰島素時間：", ["☀️ 早上施打", "🌙 晚上施打"], horizontal=True)
 
     d_title, d_msg, d_type = get_decision(current_bg, trend, hours)
     f_title, f_msg, f_type = get_food_recommendation(current_bg, trend)
@@ -215,35 +211,29 @@ if page == PAGE_MONITOR:
     elif d_type == "warning": st.warning(f"**{d_title}**\n\n{d_msg}")
     else: st.info(f"**{d_title}**\n\n{d_msg}")
 
+    # --- 智能餵食建議 (移動到這裡並修正縮排) ---
     import datetime
-import pytz
+    import pytz
+    tw_tz = pytz.timezone('Asia/Taipei')
+    now_tw = datetime.datetime.now(tw_tz)
+    current_hour = now_tw.hour
 
-# 設定台北時區
-tw_tz = pytz.timezone('Asia/Taipei')
-now_tw = datetime.datetime.now(tw_tz)
-current_hour = now_tw.hour
-
-st.markdown("### 🥣 智能餵食建議")
-
-# 根據時間判定醫囑
-if 5 <= current_hour < 11:
-    feeding_msg = "🌅 **早安！現在是【早餐時段】**\n\n建議：11g GI + 33cc 水"
-elif 11 <= current_hour < 16:
-    feeding_msg = "☀️ **現在是【午餐時段】**\n\n建議：11g GI + 33cc 水"
-elif 16 <= current_hour < 21:
-    feeding_msg = "🌆 **晚餐時間到了！**\n\n建議：11g GI + 33cc 水"
-else:
-    feeding_msg = "🌙 **現在是【宵夜/深夜時段】**\n\n建議：提供少量飲水，注意血糖波動。"
-
-st.info(feeding_msg)
-st.caption(f"目前台北時間：{now_tw.strftime('%H:%M')}")
+    st.markdown("### 🥣 智能餵食建議")
+    if 5 <= current_hour < 11:
+        st.success(f"🌅 **早安！現在是【早餐時段】**\n\n建議：11g GI + 33cc 水 (台北 {now_tw.strftime('%H:%M')})")
+    elif 11 <= current_hour < 16:
+        st.info(f"☀️ **現在是【午餐時段】**\n\n建議：11g GI + 33cc 水 (台北 {now_tw.strftime('%H:%M')})")
+    elif 16 <= current_hour < 21:
+        st.warning(f"🌆 **現在是【晚餐時段】**\n\n建議：11g GI + 33cc 水 (台北 {now_tw.strftime('%H:%M')})")
+    else:
+        st.info(f"🌙 **現在是【深夜時段】**\n\n建議：提供少量飲水，注意血糖狀況。")
 
 # ==========================================
-# 7. 頁面 B: 醫療病歷庫 (您的原始完整病歷欄位)
+# 7. 頁面 B: 醫療病歷庫
 # ==========================================
 elif page == PAGE_RECORD:
     st.title("🏥 醫療回診紀錄")
-    visit_date = st.date_input("📅 回診日期", date.today())
+    visit_date = st.date_input("📅 回診日期", datetime.date.today())
     
     st.markdown("##### 1️⃣ 器官功能 (Kidney & Liver)")
     k1, k2, k3 = st.columns(3)
@@ -265,56 +255,38 @@ elif page == PAGE_RECORD:
 
     doc_notes = st.text_area("醫師醫囑：", height=100)
     
-    if st.button("💾 封存病歷到雲端", type="primary", use_container_width=True):
-        row_data = [str(visit_date), val_bun, val_cre, val_sdma, 0, 0, val_phos, val_k, 0, 0, val_ca, val_rbc, val_wbc, val_hct, 0, doc_notes]
-        success, msg = save_to_google_sheet(row_data, 1)
-        if success: st.toast("✅ 病歷存檔成功！")
-        else: st.error(f"❌ 存檔失敗: {msg}")
+    st.markdown("##### 5️⃣ 附件上傳 (生檢單/影像)")
+    uploaded_file = st.file_uploader("上傳病歷照片", type=['png', 'jpg', 'jpeg', 'pdf'])
 
-# 在檔案頂部增加一個雲端硬碟上傳函數
-def upload_to_drive(file_obj, folder_id):
-    try:
-        from googleapiclient.discovery import build
-        from googleapiclient.http import MediaIoBaseUpload
-        import io
-        
-        # 使用現有的 creds (這裡假設您已經按照之前的邏輯建立了 creds)
-        # 您需要將之前的 creds 定義移動到全域或重新在函數內建立
-        service = build('drive', 'v3', credentials=creds)
-        
-        file_metadata = {
-            'name': file_obj.name,
-            'parents': [folder_id]
-        }
-        media = MediaIoBaseUpload(io.BytesIO(file_obj.read()), mimetype=file_obj.type)
-        file = service.files().create(body=file_metadata, media_body=media, fields='id, webViewLink').execute()
-        return file.get('webViewLink')
-    except Exception as e:
-        st.error(f"檔案上傳失敗: {e}")
-        return None
-
-# --- 在病歷庫頁面 (PAGE_RECORD) 加入 UI ---
-st.markdown("##### 5️⃣ 附件上傳 (生檢單/影像)")
-uploaded_file = st.file_uploader("上傳病歷照片", type=['png', 'jpg', 'jpeg', 'pdf'])
-
-if st.button("💾 封存病歷與附件", type="primary", use_container_width=True):
+    if st.button("💾 封存病歷與附件", type="primary", use_container_width=True):
         with st.spinner("同步至雲端中..."):
             try:
-                # 1. 處理檔案上傳 (呼叫函數時只給 2 個東西)
+                # 現場獲取連線憑證
+                s = st.secrets["gcp_service_account"]
+                pk = s["private_key"].replace("\\n", "\n")
+                from oauth2client.service_account import ServiceAccountCredentials
+                scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
+                creds = ServiceAccountCredentials.from_json_keyfile_dict({
+                    "type": "service_account", "project_id": s["project_id"],
+                    "private_key_id": s["private_key_id"], "private_key": pk,
+                    "client_email": s["client_email"], "client_id": s["client_id"],
+                    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                    "token_uri": "https://oauth2.googleapis.com/token"
+                }, scope)
+
+                # 處理檔案上傳
                 file_url = "無附件"
                 if uploaded_file:
-                    file_url = upload_to_drive(uploaded_file, "1tjd37853ebjxZMMQQR__tKanyWu9WMlH")
+                    file_url = upload_to_drive(uploaded_file, "1tjd37853ebjxZMMQQR__tKanyWu9WMlH", creds)
                 
-                # 2. 準備寫入表格的資料 (最後一欄一定要有 file_url)
+                # 準備寫入表格的資料 (17 個欄位對齊 Sheet2)
                 row_data = [
                     str(visit_date), val_bun, val_cre, val_sdma, 0, 0, 
                     val_phos, val_k, 0, 0, val_ca, 
                     val_rbc, val_wbc, val_hct, 0, doc_notes, file_url
                 ]
                 
-                # 3. 執行存檔 (Sheet2 索引為 1)
                 success, msg = save_to_google_sheet(row_data, 1)
-                
                 if success:
                     st.success("✅ 病歷與照片已封存！")
                     st.balloons()
