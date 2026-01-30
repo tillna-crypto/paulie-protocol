@@ -215,15 +215,28 @@ if page == PAGE_MONITOR:
     elif d_type == "warning": st.warning(f"**{d_title}**\n\n{d_msg}")
     else: st.info(f"**{d_title}**\n\n{d_msg}")
 
-    st.markdown("### 🍽️ 智能餵食建議")
-    st.info(f"**{f_title}**\n\n{f_msg}")
+    import datetime
+import pytz
 
-    if st.button("💾 寫入雲端日誌", type="primary", use_container_width=True):
-        now_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        row_data = [now_time, period, current_bg, trend, real_liquid, d_title, cat_weight]
-        success, msg = save_to_google_sheet(row_data, 0)
-        if success: st.toast("✅ 雲端存檔成功！")
-        else: st.error(f"❌ 存檔失敗: {msg}")
+# 設定台北時區
+tw_tz = pytz.timezone('Asia/Taipei')
+now_tw = datetime.datetime.now(tw_tz)
+current_hour = now_tw.hour
+
+st.markdown("### 🥣 智能餵食建議")
+
+# 根據時間判定醫囑
+if 5 <= current_hour < 11:
+    feeding_msg = "🌅 **早安！現在是【早餐時段】**\n\n建議：11g GI + 33cc 水"
+elif 11 <= current_hour < 16:
+    feeding_msg = "☀️ **現在是【午餐時段】**\n\n建議：11g GI + 33cc 水"
+elif 16 <= current_hour < 21:
+    feeding_msg = "🌆 **晚餐時間到了！**\n\n建議：11g GI + 33cc 水"
+else:
+    feeding_msg = "🌙 **現在是【宵夜/深夜時段】**\n\n建議：提供少量飲水，注意血糖波動。"
+
+st.info(feeding_msg)
+st.caption(f"目前台北時間：{now_tw.strftime('%H:%M')}")
 
 # ==========================================
 # 7. 頁面 B: 醫療病歷庫 (您的原始完整病歷欄位)
