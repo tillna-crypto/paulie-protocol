@@ -141,12 +141,16 @@ if page == PAGE_MONITOR:
         col1, col2 = st.columns(2)
         with col1:
             current_bg = st.number_input("🩸 血糖 (mg/dL)", 0, 600, 350)
-            hours = st.slider("⏱️ 距離打針 (hr)", 0.0, 12.0, 2.0, 0.5)
+            hours = st.slider("⏱️ 距離上次施打胰島素 (小時)", 0.0, 12.0, 2.0, 0.5, format="%.1f hr")
             trend = st.selectbox("📈 趨勢", ["➡️ 平穩", "↘️ 緩步下降", "⬇️ 快速下降", "↗️ 緩步上升", "⬆️ 快速上升"])
         with col2:
             urine_clump = st.number_input("💧 尿塊重 (g)", 0, 500, 0)
             cat_weight = st.number_input("⚖️ 體重 (kg)", 1.0, 10.0, 5.0, 0.1)
-            period = st.radio("週期", ["☀️ Morning", "🌙 Evening"], horizontal=True)
+            period = st.radio(
+    "上次施打胰島素時間：", 
+    ["☀️ 早上施打", "🌙 晚上施打"], 
+    horizontal=True
+)
 
     d_title, d_msg, d_type = get_decision(current_bg, trend, hours)
     f_title, f_msg, f_type = get_food_recommendation(current_bg, trend)
