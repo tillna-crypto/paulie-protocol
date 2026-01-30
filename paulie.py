@@ -269,7 +269,7 @@ if st.button("💾 封存病歷與附件", type="primary", use_container_width=T
                 file_url = "無附件"
                 if uploaded_file:
                     # 請務必確認這裡的 DRIVE_FOLDER_ID 已正確填寫
-                    file_url = upload_to_drive(uploaded_file, 1tjd37853ebjxZMMQQR__tKanyWu9WMlH, creds)
+                    file_url = upload_to_drive(uploaded_file,"1tjd37853ebjxZMMQQR__tKanyWu9WMlH", creds)
                 
                 # 3. 第三步：準備寫入 Google Sheet 的資料
                 # 請根據您的實際變數名稱 (如 val_bun, val_cre 等) 調整以下 row_data
