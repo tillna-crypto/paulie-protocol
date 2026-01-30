@@ -29,44 +29,48 @@ KEY_FILE = "service_account.json"
 
 def save_to_google_sheet(data_row, sheet_tab_index=0):
     try:
-        # 1. 確保環境變數都在
         import streamlit as st
         import gspread
         from oauth2client.service_account import ServiceAccountCredentials
+        
+        # 1. 強制檢查 Secrets 是否存在
+        if "gcp_service_account" not in st.secrets:
+            return False, "保險箱內找不到 gcp_service_account 標題"
 
-        scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
+        # 2. 核心修正：手動建立金鑰字典 (避開所有偵測不到的問題)
+        s = st.secrets["gcp_service_account"]
         
-        # 2. 強制從保險箱抓取最原始的資料
-        auth_info = st.secrets["gcp_service_account"]
+        # 處理最頑固的私鑰格式問題
+        pk = s["private_key"]
+        if "\\n" in pk:
+            pk = pk.replace("\\n", "\n")
         
-        # 3. 手動構建字典，解決所有格式與換行問題
-        creds_dict = {
-            "type": auth_info["type"],
-            "project_id": auth_info["project_id"],
-            "private_key_id": auth_info["private_key_id"],
-            "private_key": auth_info["private_key"].replace("\\n", "\n"),
-            "client_email": auth_info["client_email"],
-            "client_id": auth_info["client_id"],
-            "auth_uri": auth_info["auth_uri"],
-            "token_uri": auth_info["token_uri"],
-            "auth_provider_x509_cert_url": auth_info["auth_provider_x509_cert_url"],
-            "client_x509_cert_url": auth_info["client_x509_cert_url"]
+        info = {
+            "type": "service_account",
+            "project_id": s["project_id"],
+            "private_key_id": s["private_key_id"],
+            "private_key": pk,
+            "client_email": s["client_email"],
+            "client_id": s["client_id"],
+            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+            "token_uri": "https://oauth2.googleapis.com/token",
+            "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+            "client_x509_cert_url": s["client_x509_cert_url"]
         }
-        
-        # 4. 授權並開啟
-        creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+
+        # 3. 使用 dict 方式授權
+        scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
+        creds = ServiceAccountCredentials.from_json_keyfile_dict(info, scope)
         client = gspread.authorize(creds)
         
-        # ⚠️ 注意：這裡直接寫死你的試算表名稱，避免變數抓不到
+        # 4. 開啟試算表
         sheet = client.open("Paulie_BioScout_DB").get_worksheet(sheet_tab_index)
-        
-        # 5. 寫入
         sheet.append_row(data_row)
         return True, "成功"
         
     except Exception as e:
-        # 如果還是失敗，請把這行回傳的具體錯誤訊息告訴我
-        return False, f"關鍵錯誤報告: {str(e)}"
+        # 如果這裡報錯，會吐出最真實的底層原因
+        return False, f"底層連線失敗: {str(e)}"
 
 # ==========================================
 # 3. 樣式與圖片設定
