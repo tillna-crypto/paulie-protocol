@@ -6,28 +6,40 @@ from datetime import datetime, date
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import os
-def upload_to_drive(file_obj, folder_id, creds):
+def upload_to_drive(file_obj, folder_id):
     try:
         from googleapiclient.discovery import build
         from googleapiclient.http import MediaIoBaseUpload
+        from oauth2client.service_account import ServiceAccountCredentials
         import io
+        import streamlit as st
+
+        # 這裡直接在函數內部拿鑰匙，不靠外面傳
+        s = st.secrets["gcp_service_account"]
+        pk = s["private_key"].replace("\\n", "\n")
+        info = {
+            "type": "service_account",
+            "project_id": s["project_id"],
+            "private_key_id": s["private_key_id"],
+            "private_key": pk,
+            "client_email": s["client_email"],
+            "client_id": s["client_id"],
+            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+            "token_uri": "https://oauth2.googleapis.com/token",
+            "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+            "client_x509_cert_url": s["client_x509_cert_url"]
+        }
+        scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
+        creds = ServiceAccountCredentials.from_json_keyfile_dict(info, scope)
         
-        # 建立 Drive API 連線
         service = build('drive', 'v3', credentials=creds)
-        
-        # 設定檔案名稱與存放資料夾
         file_metadata = {'name': file_obj.name, 'parents': [folder_id]}
         media = MediaIoBaseUpload(io.BytesIO(file_obj.read()), mimetype=file_obj.type)
-        
-        # 執行上傳並取得檔案連結
         file = service.files().create(body=file_metadata, media_body=media, fields='id, webViewLink').execute()
-        
-        # 開啟權限：讓知道連結的人都能檢視
         service.permissions().create(fileId=file.get('id'), body={'type': 'anyone', 'role': 'reader'}).execute()
-        
         return file.get('webViewLink')
     except Exception as e:
-        return f"上傳失敗原因: {str(e)}"
+        return f"上傳失敗: {str(e)}"
 
 # ==========================================
 # 1. 系統設定 (Paulie BioScout)
@@ -291,7 +303,7 @@ if st.button("💾 封存病歷與附件", type="primary", use_container_width=T
                 file_url = "無附件"
                 if uploaded_file:
                     # 傳入 3 個參數：檔案物件、資料夾ID、鑰匙
-                    file_url = upload_to_drive(uploaded_file, "1tjd37853ebjxZMMQQR__tKanyWu9WMlH", creds)
+                    file_url = upload_to_drive(uploaded_file, "1tjd37853ebjxZMMQQR__tKanyWu9WMlH")
                 
                 # 3. 準備寫入表格的資料 (最後一欄放 file_url)
                 row_data = [
