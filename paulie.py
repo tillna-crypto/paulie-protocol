@@ -280,20 +280,44 @@ if page == PAGE_MONITOR:
     st.divider()
 
     # --- 4. 寫入日誌與歷史紀錄 (恢復區塊) ---
+    # --- 4. 寫入日誌與歷史紀錄 (具備存檔功能) ---
     st.subheader("📝 健康日誌")
     
-    # 顯示最近的 5 筆紀錄供參考
     if 'df_blood_glucose' in locals() and not df_blood_glucose.empty:
+        # 顯示歷史紀錄
         st.dataframe(df_blood_glucose.tail(5), use_container_width=True)
         
-        # 這裡可以放你的日誌寫入 Form (如果原本有的話)
         with st.expander("➕ 新增今日日誌備註"):
-            note = st.text_area("今天小豹有什麼特別狀況嗎？ (例如：食慾、精神狀況)")
-            if st.button("儲存備註"):
-                # 這裡執行你的儲存邏輯
-                st.toast("備註已更新！")
+            note = st.text_area("今天小豹有什麼特別狀況嗎？", placeholder="例如：精神不錯，但有點想咬醫生...")
+            
+            if st.button("儲存備註並匯出"):
+                try:
+                    # 1. 取得當前時間
+                    current_time = pd.Timestamp.now().strftime('%Y-%m-%d %H:%M')
+                    
+                    # 2. 建立新的一列 (確保欄位與你的 Excel 一致)
+                    new_entry = {
+                        '時間': current_time,
+                        '備註': note
+                        # 你可以在這裡加入其他預設欄位，例如血糖: None
+                    }
+                    
+                    # 3. 匯入並更新 dataframe
+                    df_blood_glucose = pd.concat([df_blood_glucose, pd.DataFrame([new_entry])], ignore_index=True)
+                    
+                    # 4. 儲存回 Excel 或 CSV (請確認你的檔案路徑)
+                    # 如果是 CSV:
+                    df_blood_glucose.to_csv('blood_glucose.csv', index=False)
+                    # 如果是 Excel:
+                    # df_blood_glucose.to_excel('blood_glucose.xlsx', index=False)
+                    
+                    st.success(f"✅ 成功寫入日誌並儲存！ (時間: {current_time})")
+                    st.balloons() # 撒個花慶祝一下
+                    
+                except Exception as e:
+                    st.error(f"儲存失敗：{e}")
     else:
-        st.write("目前尚無日誌紀錄。")
+        st.info("目前尚無資料表，請先確認數據來源。")
 
 # ==========================================
 # 7. 頁面 B: 醫療病歷庫
