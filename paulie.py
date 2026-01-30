@@ -29,26 +29,30 @@ KEY_FILE = "service_account.json"
 
 def save_to_google_sheet(data_row, sheet_tab_index=0):
     try:
+        # 關鍵：直接在函數裡面宣告一次這兩行
+        import os
+        import streamlit as st
+        
         scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-        has_key_file = os.path.exists(KEY_FILE)
-        has_secrets = "gcp_service_account" in st.secrets
-
-        if has_key_file:
-            creds = ServiceAccountCredentials.from_json_keyfile_name(KEY_FILE, scope)
-        elif has_secrets:
+        
+        # 這是最暴力的寫法：直接檢查 st.secrets
+        if "gcp_service_account" in st.secrets:
             creds_info = dict(st.secrets["gcp_service_account"])
             if "\\n" in creds_info["private_key"]:
                 creds_info["private_key"] = creds_info["private_key"].replace("\\n", "\n")
             creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_info, scope)
+        elif os.path.exists(KEY_FILE):
+            creds = ServiceAccountCredentials.from_json_keyfile_name(KEY_FILE, scope)
         else:
-            return False, "No key could be detected."
+            return False, "鑰匙遺失 (Secrets & JSON 均無)"
         
         client = gspread.authorize(creds)
-        sheet = client.open(SHEET_NAME).get_worksheet(sheet_tab_index)
+        # 這裡也是重點：確保 SHEET_NAME 是全域變數
+        sheet = client.open("Paulie_BioScout_DB").get_worksheet(sheet_tab_index)
         sheet.append_row(data_row)
         return True, "成功"
     except Exception as e:
-        return False, str(e)
+        return False, f"連線引擎報錯: {str(e)}"
 
 # ==========================================
 # 3. 樣式與圖片設定
