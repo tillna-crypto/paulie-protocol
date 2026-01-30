@@ -216,3 +216,40 @@ elif page == PAGE_RECORD:
         success, msg = save_to_google_sheet(row_data, 1)
         if success: st.toast("✅ 病歷存檔成功！")
         else: st.error(f"❌ 存檔失敗: {msg}")
+
+# 在檔案頂部增加一個雲端硬碟上傳函數
+def upload_to_drive(file_obj, folder_id):
+    try:
+        from googleapiclient.discovery import build
+        from googleapiclient.http import MediaIoBaseUpload
+        import io
+        
+        # 使用現有的 creds (這裡假設您已經按照之前的邏輯建立了 creds)
+        # 您需要將之前的 creds 定義移動到全域或重新在函數內建立
+        service = build('drive', 'v3', credentials=creds)
+        
+        file_metadata = {
+            'name': file_obj.name,
+            'parents': [folder_id]
+        }
+        media = MediaIoBaseUpload(io.BytesIO(file_obj.read()), mimetype=file_obj.type)
+        file = service.files().create(body=file_metadata, media_body=media, fields='id, webViewLink').execute()
+        return file.get('webViewLink')
+    except Exception as e:
+        st.error(f"檔案上傳失敗: {e}")
+        return None
+
+# --- 在病歷庫頁面 (PAGE_RECORD) 加入 UI ---
+st.markdown("##### 5️⃣ 附件上傳 (生檢單/影像)")
+uploaded_file = st.file_uploader("上傳病歷照片", type=['png', 'jpg', 'jpeg', 'pdf'])
+
+if st.button("💾 封存病歷到雲端", type="primary"):
+    file_url = ""
+    if uploaded_file:
+        with st.spinner('正在上傳檔案到 Google Drive...'):
+            # 請替換成您建立的 Drive 資料夾 ID (網址最後那一串亂碼)
+            file_url = upload_to_drive(uploaded_file, "您的資料夾ID")
+    
+    # 將 file_url 也寫入 Google Sheet 的最後一欄
+    row_data = [str(visit_date), ..., file_url] 
+    success, msg = save_to_google_sheet(row_data, 1)
