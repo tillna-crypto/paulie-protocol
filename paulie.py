@@ -243,13 +243,47 @@ def upload_to_drive(file_obj, folder_id):
 st.markdown("##### 5️⃣ 附件上傳 (生檢單/影像)")
 uploaded_file = st.file_uploader("上傳病歷照片", type=['png', 'jpg', 'jpeg', 'pdf'])
 
-if st.button("💾 封存病歷到雲端", type="primary"):
-    file_url = ""
-    if uploaded_file:
-        with st.spinner('正在上傳檔案到 Google Drive...'):
-            # 請替換成您建立的 Drive 資料夾 ID (網址最後那一串亂碼)
-            file_url = upload_to_drive(uploaded_file, "您的資料夾ID")
-    
-    # 將 file_url 也寫入 Google Sheet 的最後一欄
-    row_data = [str(visit_date), ..., file_url] 
-    success, msg = save_to_google_sheet(row_data, 1)
+if st.button("💾 封存病歷與附件", type="primary", use_container_width=True):
+        with st.spinner("同步至雲端中..."):
+            try:
+                # 1. 第一步：先在現場生產鑰匙 (解決 creds is not defined)
+                s = st.secrets["gcp_service_account"]
+                pk = s["private_key"].replace("\\n", "\n")
+                info = {
+                    "type": "service_account",
+                    "project_id": s["project_id"],
+                    "private_key_id": s["private_key_id"],
+                    "private_key": pk,
+                    "client_email": s["client_email"],
+                    "client_id": s["client_id"],
+                    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                    "token_uri": "https://oauth2.googleapis.com/token",
+                    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+                    "client_x509_cert_url": s["client_x509_cert_url"]
+                }
+                from oauth2client.service_account import ServiceAccountCredentials
+                scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
+                creds = ServiceAccountCredentials.from_json_keyfile_dict(info, scope)
+                
+                # 2. 第二步：處理檔案上傳
+                file_url = "無附件"
+                if uploaded_file:
+                    # 請務必確認這裡的 DRIVE_FOLDER_ID 已正確填寫
+                    file_url = upload_to_drive(uploaded_file, DRIVE_FOLDER_ID, creds)
+                
+                # 3. 第三步：準備寫入 Google Sheet 的資料
+                # 請根據您的實際變數名稱 (如 val_bun, val_cre 等) 調整以下 row_data
+                row_data = [
+                    str(visit_date), val_bun, val_cre, val_sdma, val_alt, val_alkp, 
+                    val_phos, val_k, val_na, val_cl, val_ca, 
+                    val_rbc, val_wbc, val_hct, val_a1c, doc_notes, file_url
+                ]
+                
+                # 4. 第四步：執行存檔
+                success, msg = save_to_google_sheet(row_data, 1)
+                if success:
+                    st.toast("✅ 病歷與照片已封存！")
+                else:
+                    st.error(f"❌ 存檔失敗: {msg}")
+            except Exception as e:
+                st.error(f"⚠️ 處理過程發生錯誤: {str(e)}")
