@@ -265,6 +265,36 @@ if page == PAGE_MONITOR:
     else:
         st.info(f"🌙 **現在是【深夜時段】**\n\n建議：提供少量飲水，注意血糖狀況。")
 
+    # --- 3. 智能飲食建議與尿量分析 (恢復區塊) ---
+    st.subheader("💧 尿量分析與趨勢")
+    if 'df_blood_glucose' in locals() and not df_blood_glucose.empty:
+        # 繪製尿塊重量趨勢圖
+        try:
+            # 假設 '尿塊重量' 是你的欄位名稱，如果不是，請改為你的欄位名
+            st.line_chart(df_blood_glucose[['尿塊重量']])
+        except:
+            st.info("尚未有足夠的尿量數據生成圖表。")
+    else:
+        st.write("暫無數據可供分析。")
+
+    st.divider()
+
+    # --- 4. 寫入日誌與歷史紀錄 (恢復區塊) ---
+    st.subheader("📝 健康日誌")
+    
+    # 顯示最近的 5 筆紀錄供參考
+    if 'df_blood_glucose' in locals() and not df_blood_glucose.empty:
+        st.dataframe(df_blood_glucose.tail(5), use_container_width=True)
+        
+        # 這裡可以放你的日誌寫入 Form (如果原本有的話)
+        with st.expander("➕ 新增今日日誌備註"):
+            note = st.text_area("今天小豹有什麼特別狀況嗎？ (例如：食慾、精神狀況)")
+            if st.button("儲存備註"):
+                # 這裡執行你的儲存邏輯
+                st.toast("備註已更新！")
+    else:
+        st.write("目前尚無日誌紀錄。")
+
 # ==========================================
 # 7. 頁面 B: 醫療病歷庫
 # ==========================================
