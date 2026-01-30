@@ -17,6 +17,10 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+st.write("🔍 鑰匙測試：", list(st.secrets.keys()))
+if "gcp_service_account" in st.secrets:
+    st.write("✅ 抓到標題了！", list(st.secrets["gcp_service_account"].keys()))
+    
 # 初始化資料庫
 if 'history' not in st.session_state: st.session_state.history = []
 if 'checkup_history' not in st.session_state: st.session_state.checkup_history = []
