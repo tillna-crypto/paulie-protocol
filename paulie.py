@@ -29,30 +29,41 @@ KEY_FILE = "service_account.json"
 
 def save_to_google_sheet(data_row, sheet_tab_index=0):
     try:
-        # 關鍵：直接在函數裡面宣告一次這兩行
-        import os
-        import streamlit as st
-        
+        # 定義範圍
         scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
         
-        # 這是最暴力的寫法：直接檢查 st.secrets
+        # --- 🛡️ 暴力讀取 Secrets (解決存檔失敗) ---
         if "gcp_service_account" in st.secrets:
-            creds_info = dict(st.secrets["gcp_service_account"])
-            if "\\n" in creds_info["private_key"]:
-                creds_info["private_key"] = creds_info["private_key"].replace("\\n", "\n")
-            creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_info, scope)
-        elif os.path.exists(KEY_FILE):
-            creds = ServiceAccountCredentials.from_json_keyfile_name(KEY_FILE, scope)
+            # 直接從 Streamlit 的保險箱拿取數據
+            s_info = st.secrets["gcp_service_account"]
+            creds_dict = {
+                "type": s_info.get("type"),
+                "project_id": s_info.get("project_id"),
+                "private_key_id": s_info.get("private_key_id"),
+                "private_key": s_info.get("private_key").replace("\\n", "\n"),
+                "client_email": s_info.get("client_email"),
+                "client_id": s_info.get("client_id"),
+                "auth_uri": s_info.get("auth_uri"),
+                "token_uri": s_info.get("token_uri"),
+                "auth_provider_x509_cert_url": s_info.get("auth_provider_x509_cert_url"),
+                "client_x509_cert_url": s_info.get("client_x509_cert_url")
+            }
+            creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+        elif os.path.exists("service_account.json"):
+            creds = ServiceAccountCredentials.from_json_keyfile_name("service_account.json", scope)
         else:
-            return False, "鑰匙遺失 (Secrets & JSON 均無)"
-        
+            return False, "環境中完全找不到金鑰資訊"
+
+        # --- 🚀 執行寫入 ---
         client = gspread.authorize(creds)
-        # 這裡也是重點：確保 SHEET_NAME 是全域變數
+        # 直接指定檔名，避免變數抓取不到
         sheet = client.open("Paulie_BioScout_DB").get_worksheet(sheet_tab_index)
         sheet.append_row(data_row)
         return True, "成功"
+        
     except Exception as e:
-        return False, f"連線引擎報錯: {str(e)}"
+        # 這裡會吐出更詳細的錯誤，幫助我們抓到最後的魔鬼
+        return False, f"連線異常: {str(e)}"
 
 # ==========================================
 # 3. 樣式與圖片設定
