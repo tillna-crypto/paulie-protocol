@@ -185,60 +185,6 @@ with st.sidebar:
 # 6. 頁面 A: 偵查儀表板
 # ==========================================
 if page == PAGE_MONITOR:
-    st.markdown("### 🐾 小豹今日健康星級")
-
-    # --- 1. 計算星級邏輯 ---
-    stars = 0
-    # 這裡假設你的 dataframe 叫 df_blood_glucose
-    if not df_blood_glucose.empty:
-        try:
-            # 取得最新一筆數據
-            latest = df_blood_glucose.iloc[-1]
-            gl_val = latest.get('血糖值', 0)
-            ur_val = latest.get('尿塊重量', 0)
-            
-            # 星級判定邏輯
-            if 100 <= gl_val <= 250: stars += 1  # 血糖合格
-            if ur_val >= 35: stars += 1           # 尿塊合格
-            if len(df_blood_glucose) > 0: stars += 1 # 有紀錄就有基本星
-        except:
-            stars = 1
-    else:
-        stars = 1 # 初始狀態
-
-    # --- 2. 顯示美化後的 UI ---
-    # 根據星級決定邊框顏色：綠色/橘色/紅色
-    border_color = "#4CAF50" if stars == 3 else "#FFA500" if stars == 2 else "#FF4B4B"
-    
-    st.markdown(
-        f"""
-        <div style="background-color: #1e1e1e; padding: 20px; border-radius: 15px; border-left: 8px solid {border_color}; margin-bottom: 20px;">
-            <p style="margin:0; color: #888; font-size: 14px;">DAILY STATUS</p>
-            <h2 style="margin:0; color: white;">{"⭐" * stars}{"🌑" * (3-stars)}</h2>
-        </div>
-        """, 
-        unsafe_allow_html=True
-    )
-
-    col1, col2 = st.columns([1, 2])
-    
-    with col1:
-        # 這裡是放你那張「5.0kg」插畫的最佳位置
-        if stars == 3:
-            st.title("🕶️") # 之後換成：st.image("path_to_5kg_cat.png")
-        elif stars == 2:
-            st.title("😐")
-        else:
-            st.title("💢")
-            
-    with col2:
-        if stars == 3:
-            st.success("**完美渣男模式**：今日血糖穩定，尿塊達標。小豹帥到連蔣醫師都沒話說。")
-        elif stars == 2:
-            st.warning("**普通渣男模式**：數據還算及格，但有一項在邊緣，請繼續監控。")
-        else:
-            st.error("**醫生警報模式**：數據不太妙，小豹現在很不爽，快檢查餵食份量！")
-
     st.divider()
     st.title("小豹專屬儀表板 𓃠")
     with st.container():
