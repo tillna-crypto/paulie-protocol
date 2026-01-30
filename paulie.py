@@ -185,6 +185,49 @@ with st.sidebar:
 # 6. 頁面 A: 偵查儀表板
 # ==========================================
 if page == PAGE_MONITOR:
+    st.markdown("### 🐾 小豹今日健康星級")
+    
+    # 1. 計算邏輯 (從你的 dataframe 或 session_state 抓數據)
+    # 這裡假設你的血糖數據存放在 last_glucose，尿塊在 last_urine
+    stars = 0
+    
+    # 邏輯判定 (數值可以根據蔣醫師的建議調整)
+    # 假設最新血糖在 100-250 之間加一星
+    # 假設最新尿塊重量 > 30g 加一星
+    # 假設今日有紀錄體重加一星
+    
+    # --- 這裡先用模擬數值，你可以替換成 df.iloc[-1] ---
+    test_glucose = 180 # 範例
+    test_urine = 45    # 範例
+    
+    if 100 <= test_glucose <= 250: stars += 1
+    if test_urine <= 208: stars += 1
+    stars += 1 # 預設今日有紀錄即給一星
+    
+    # 2. 根據星級顯示不同的小豹語錄與 Icon
+    star_icons = "⭐" * stars + "🌑" * (3 - stars)
+    
+    col1, col2 = st.columns([1, 3])
+    
+    with col1:
+        if stars == 3:
+            # 這裡之後可以換成你的 5kg 小豹插畫
+            st.title("🕶️") 
+        elif stars == 2:
+            st.title("😐")
+        else:
+            st.title("💢") # 這裡是 1 星或 0 星，代表小豹要咬人了
+            
+    with col2:
+        st.subheader(star_icons)
+        if stars == 3:
+            st.write("**「完美渣男，繼續保持。」**")
+        elif stars == 2:
+            st.write("**「普通渣男，還在掌控中。」**")
+        else:
+            st.write("**「醫生在看了，皮繃緊點！」**")
+
+    st.divider()
     st.title("小豹專屬儀表板 𓃠")
     with st.container():
         st.subheader("📝 數據輸入")
