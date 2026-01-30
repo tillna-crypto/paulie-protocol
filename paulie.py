@@ -39,6 +39,7 @@ def save_to_google_sheet(data_row, sheet_tab_index=0):
 
         # 2. 核心修正：手動建立金鑰字典 (避開所有偵測不到的問題)
         s = st.secrets["gcp_service_account"]
+pk = s["private_key"].replace("\\n", "\n") # 處理 JSON 格式的換行
         
         # 處理最頑固的私鑰格式問題
         pk = s["private_key"]
