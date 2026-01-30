@@ -35,8 +35,12 @@ def save_to_google_sheet(data_row, sheet_tab_index=0):
     try:
         scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
         
-        if not os.path.exists(KEY_FILE):
-            return False, "找不到鑰匙檔 (service_account.json)"
+       # 檢查是否具備金鑰（實體檔案 或 雲端 Secrets 二選一即可）
+    has_key_file = os.path.exists(KEY_FILE)
+    has_secrets = "gcp_service_account" in st.secrets
+    
+    if not (has_key_file or has_secrets):
+        return False, "找不到鑰匙來源 (請確認 Secrets 或 json 檔案)"
             
         creds = ServiceAccountCredentials.from_json_keyfile_name(KEY_FILE, scope)
         client = gspread.authorize(creds)
