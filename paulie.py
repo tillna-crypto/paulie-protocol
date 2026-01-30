@@ -185,6 +185,40 @@ with st.sidebar:
 # 6. 頁面 A: 偵查儀表板
 # ==========================================
 if page == PAGE_MONITOR:
+    # --- 1. 安全抓取最新數據 ---
+    stars = 1  # 預設 1 顆星（基本分）
+    gl_val = 0
+    ur_val = 0
+    
+    # 檢查 dataframe 是否存在且有資料
+    if 'df_blood_glucose' in locals() and not df_blood_glucose.empty:
+        try:
+            # 取得最後一筆資料
+            latest = df_blood_glucose.iloc[-1]
+            
+            # 這裡用 index (位置) 抓取，避免欄位名稱對不上的問題
+            # 假設第 1 欄是血糖，第 2 欄是尿塊 (請根據你實際表格順序調整)
+            gl_val = latest.iloc[1] if len(latest) > 1 else 0
+            ur_val = latest.iloc[2] if len(latest) > 2 else 0
+            
+            # 星級邏輯
+            if 100 <= gl_val <= 250: stars += 1
+            if ur_val <= 208: stars += 1
+        except Exception as e:
+            # 如果還是出錯，就維持基本星數，不讓畫面崩潰
+            pass
+
+    # --- 2. 顯示 UI ---
+    st.markdown(f"### 🐾 BioScout 健康星級：{'⭐' * stars}{'🌑' * (3-stars)}")
+    
+    # 用顏色區分狀態感
+    if stars == 3:
+        st.success(f"🕶️ **完美渣男** (血糖: {gl_val} / 尿塊: {ur_val}) - 小豹今日狀態極佳！")
+    elif stars == 2:
+        st.warning(f"😐 **普通渣男** (血糖: {gl_val} / 尿塊: {ur_val}) - 數據還行，繼續監控。")
+    else:
+        st.error(f"💢 **醫生警告** - 數據不足或異常，小豹快要咬人了！")
+
     st.divider()
     st.title("小豹專屬儀表板 𓃠")
     with st.container():
