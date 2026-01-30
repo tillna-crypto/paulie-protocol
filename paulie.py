@@ -268,7 +268,7 @@ uploaded_file = st.file_uploader("上傳病歷照片", type=['png', 'jpg', 'jpeg
 if st.button("💾 封存病歷與附件", type="primary", use_container_width=True):
         with st.spinner("同步至雲端中..."):
             try:
-                # 1. 第一步：先在現場生產鑰匙 (解決 creds is not defined)
+                # 1. 建立連線鑰匙 (creds)
                 s = st.secrets["gcp_service_account"]
                 pk = s["private_key"].replace("\\n", "\n")
                 info = {
@@ -287,21 +287,20 @@ if st.button("💾 封存病歷與附件", type="primary", use_container_width=T
                 scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
                 creds = ServiceAccountCredentials.from_json_keyfile_dict(info, scope)
                 
-                # 2. 第二步：處理檔案上傳
+                # 2. 處理檔案上傳 (這就是您缺少的關鍵兩行)
                 file_url = "無附件"
                 if uploaded_file:
-                    # 請務必確認這裡的 DRIVE_FOLDER_ID 已正確填寫
-                    file_url = upload_to_drive(uploaded_file,"1tjd37853ebjxZMMQQR__tKanyWu9WMlH", creds)
+                    # 傳入 3 個參數：檔案物件、資料夾ID、鑰匙
+                    file_url = upload_to_drive(uploaded_file, "1tjd37853ebjxZMMQQR__tKanyWu9WMlH", creds)
                 
-                # 3. 第三步：準備寫入 Google Sheet 的資料
-                # 請根據您的實際變數名稱 (如 val_bun, val_cre 等) 調整以下 row_data
+                # 3. 準備寫入表格的資料 (最後一欄放 file_url)
                 row_data = [
                     str(visit_date), val_bun, val_cre, val_sdma, val_alt, val_alkp, 
                     val_phos, val_k, val_na, val_cl, val_ca, 
                     val_rbc, val_wbc, val_hct, val_a1c, doc_notes, file_url
                 ]
                 
-                # 4. 第四步：執行存檔
+                # 4. 執行存檔到 Google Sheet
                 success, msg = save_to_google_sheet(row_data, 1)
                 if success:
                     st.toast("✅ 病歷與照片已封存！")
