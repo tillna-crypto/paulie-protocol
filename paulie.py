@@ -143,7 +143,7 @@ def get_urine_status(liquid, expected):
     return "✅ 代謝正常", "success"
 
 def get_food_recommendation(bg, trend):
-    now = datetime.now()
+    now = datetime.datetime.now()
     current_hour = now.hour
     if bg < 100: return "🚨 低血糖急救", "立刻給予 **2g 蜂蜜**", "error"
     if (100 <= bg <= 120) and ("下降" in trend):
