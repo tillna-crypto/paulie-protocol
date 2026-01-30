@@ -33,19 +33,18 @@ def save_to_google_sheet(data_row, sheet_tab_index=0):
         import gspread
         from oauth2client.service_account import ServiceAccountCredentials
         
-        # 1. 強制檢查 Secrets 是否存在
-        if "gcp_service_account" not in st.secrets:
-            return False, "保險箱內找不到 gcp_service_account 標題"
-
-        # 2. 核心修正：手動建立金鑰字典 (避開所有偵測不到的問題)
+        # 1. 從保險箱讀取
         s = st.secrets["gcp_service_account"]
-pk = s["private_key"].replace("\\n", "\n") # 處理 JSON 格式的換行
         
-        # 處理最頑固的私鑰格式問題
-        pk = s["private_key"]
-        if "\\n" in pk:
-            pk = pk.replace("\\n", "\n")
+        # 2. 【核心修復】清洗私鑰，解決自動換行與格式問題
+        raw_key = s["private_key"]
+        # 將標籤換行符轉為真實換行，並移除可能因手動貼上產生的多餘空格
+        pk = raw_key.replace("\\n", "\n").strip()
         
+        # 如果內容中沒有正確的頭尾，手動補上 (預防貼上不完全)
+        if "-----BEGIN PRIVATE KEY-----" not in pk:
+            pk = "-----BEGIN PRIVATE KEY-----\n" + pk + "\n-----END PRIVATE KEY-----"
+
         info = {
             "type": "service_account",
             "project_id": s["project_id"],
@@ -59,19 +58,19 @@ pk = s["private_key"].replace("\\n", "\n") # 處理 JSON 格式的換行
             "client_x509_cert_url": s["client_x509_cert_url"]
         }
 
-        # 3. 使用 dict 方式授權
+        # 3. 建立連線
         scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
         creds = ServiceAccountCredentials.from_json_keyfile_dict(info, scope)
         client = gspread.authorize(creds)
         
-        # 4. 開啟試算表
+        # 4. 寫入試算表
         sheet = client.open("Paulie_BioScout_DB").get_worksheet(sheet_tab_index)
         sheet.append_row(data_row)
         return True, "成功"
         
     except Exception as e:
-        # 如果這裡報錯，會吐出最真實的底層原因
-        return False, f"底層連線失敗: {str(e)}"
+        # 這裡現在有正確的 except 塊，不會再報 SyntaxError 了
+        return False, f"連線異常: {str(e)}"
 
 # ==========================================
 # 3. 樣式與圖片設定
