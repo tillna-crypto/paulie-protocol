@@ -6,6 +6,28 @@ from datetime import datetime, date
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import os
+def upload_to_drive(file_obj, folder_id, creds):
+    try:
+        from googleapiclient.discovery import build
+        from googleapiclient.http import MediaIoBaseUpload
+        import io
+        
+        # 建立 Drive API 連線
+        service = build('drive', 'v3', credentials=creds)
+        
+        # 設定檔案名稱與存放資料夾
+        file_metadata = {'name': file_obj.name, 'parents': [folder_id]}
+        media = MediaIoBaseUpload(io.BytesIO(file_obj.read()), mimetype=file_obj.type)
+        
+        # 執行上傳並取得檔案連結
+        file = service.files().create(body=file_metadata, media_body=media, fields='id, webViewLink').execute()
+        
+        # 開啟權限：讓知道連結的人都能檢視
+        service.permissions().create(fileId=file.get('id'), body={'type': 'anyone', 'role': 'reader'}).execute()
+        
+        return file.get('webViewLink')
+    except Exception as e:
+        return f"上傳失敗原因: {str(e)}"
 
 # ==========================================
 # 1. 系統設定 (Paulie BioScout)
