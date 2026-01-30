@@ -2,10 +2,12 @@ import streamlit as st
 import pandas as pd
 import altair as alt
 import numpy as np
-from datetime import datetime, date
+import datetime  
+from datetime import date
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import os
+import pytz     # 確保有這行，餵食建議才不會時差
 def upload_to_drive(file_obj, folder_id):
     try:
         from googleapiclient.discovery import build
