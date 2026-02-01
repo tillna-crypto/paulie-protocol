@@ -185,23 +185,25 @@ with st.sidebar:
 # 6. 頁面 A: 偵查儀表板
 # ==========================================
 if page == PAGE_MONITOR:
-    # --- 1. 確保雲端連線變數 (防錯機制) ---
-    # 請確認你程式上方定義工作表 1 的變數名稱，如果叫 worksheet1 請改為 sh_ws1
-    if 'sh_ws1' not in locals():
-        try:
-            sh_ws1 = sh.worksheet("工作表1")
-        except:
-            st.error("⚠️ 找不到 Google Sheets 的 '工作表1'，請檢查分頁名稱！")
+    # --- 1. 強制建立雲端連線，解決 NameError ---
+    try:
+        # 這裡直接用你原本授權好的 sh 物件來抓工作表
+        sh_ws1 = sh.worksheet("工作表1")
+        data_all = sh_ws1.get_all_records()
+        df_final = pd.DataFrame(data_all)
+    except Exception as e:
+        st.error(f"⚠️ 無法連線至 Google Sheets：{e}")
+        df_final = pd.DataFrame()
 
     st.title("小豹專屬儀表板 𓃠")
 
-    # --- 2. 數據輸入區 ---
+    # --- 2. 數據輸入區 (維持半小時區間) ---
     with st.container():
         st.subheader("📝 數據輸入")
         col1, col2 = st.columns(2)
         with col1:
             current_bg = st.number_input("🩸 血糖 (mg/dL)", 0, 600, 350)
-            # 維持你最看重的：以 0.5 (半小時) 為區間的滑桿
+            # 嚴格鎖定 0.5hr 為區間
             hours = st.slider("⏱️ 距離上次施打胰島素 (小時)", 0.0, 12.0, 2.0, 0.5, format="%.1f hr")
             trend = st.selectbox("📈 趨勢", ["➡️ 平穩", "↘️ 緩步下降", "⬇️ 快速下降", "↗️ 緩步上升", "⬆️ 快速上升"])
         with col2:
@@ -209,52 +211,57 @@ if page == PAGE_MONITOR:
             cat_weight = st.number_input("⚖️ 體重 (kg)", 1.0, 10.0, 5.0, 0.1)
             period = st.radio("上次施打胰島素時間：", ["☀️ 早上施打", "🌙 晚上施打"], horizontal=True)
 
-    # --- 3. 核心功能：偵查報告 (半小時偵測圖表) ---
+    # --- 3. 核心：偵查報告與半小時預測圖表 ---
     st.divider()
-    st.subheader("💡 偵查報告 (半小時血糖預測)")
-    # 這裡調用你原本寫好的半小時區間繪圖函數
+    st.subheader("💡 偵查報告")
+    # 直接呼叫你的繪圖函數
     try:
         st.altair_chart(draw_scout_chart(current_bg, hours), use_container_width=True)
-    except NameError:
-        st.error("找不到 draw_scout_chart 函數，請確保該函數定義在程式上方。")
+    except Exception as e:
+        st.warning(f"圖表渲染中... {e}")
 
-    # 執行原本的決策邏輯
+    # 執行原本的決策建議邏輯
     d_title, d_msg, d_type = get_decision(current_bg, trend, hours)
     if d_type == "error": st.error(f"**{d_title}**\n\n{d_msg}")
     elif d_type == "warning": st.warning(f"**{d_title}**\n\n{d_msg}")
     else: st.info(f"**{d_title}**\n\n{d_msg}")
 
-    # --- 4. 腎閾值分析 (即時判定) ---
-    st.subheader("💧 腎閾值即時分析")
+    # --- 4. 腎閾值分析 (修正消失的圖表與計算) ---
+    st.subheader("💧 腎閾值與尿量分析")
+    
+    # 即時計算提示
     if current_bg > 250:
-        st.warning(f"⚠️ 血糖 {current_bg} 已超過腎閾值 (250)！小豹此時會產生尿糖並帶走水分，請觀察尿塊是否變大。")
+        st.warning(f"⚠️ 血糖 {current_bg} 高於腎閾值 (250)！")
+    
+    # 這裡修正原本消失的歷史分析圖表
+    if not df_final.empty:
+        try:
+            df_final['血糖值'] = pd.to_numeric(df_final['血糖值'], errors='coerce')
+            df_final['尿塊重量'] = pd.to_numeric(df_final['尿塊重量'], errors='coerce')
+            # 繪製歷史趨勢，讓你對照腎閾值
+            st.line_chart(df_final[['血糖值', '尿塊重量']].tail(20))
+        except:
+            st.write("歷史數據格式轉換中...")
     else:
-        st.success(f"✅ 血糖 {current_bg} 低於腎閾值，腎臟負荷正常。")
+        st.write("暫無雲端歷史數據可供分析圖表顯示。")
 
-    # --- 5. 智能餵食建議 ---
+    # --- 5. 修正後的雲端存檔功能 ---
     st.divider()
-    # (此處保留你原本的台北時間餵食邏輯代碼...)
-
-    # --- 6. 數據存檔 (修正 sh_ws1 報錯問題) ---
-    st.divider()
-    st.subheader("💾 數據存檔至 Paulie BioScout DB")
-    with st.expander("確認今日數據並點擊存檔"):
-        note = st.text_area("備註內容", placeholder="觀察到的精神狀況...")
+    st.subheader("💾 數據存檔至 Paulie_BioScout_DB")
+    with st.expander("確認今日數據並存檔"):
+        note = st.text_area("備註內容")
         if st.button("🔥 點我存檔至 Google Sheets"):
             try:
                 import datetime, pytz
                 tw_time = datetime.datetime.now(pytz.timezone('Asia/Taipei')).strftime('%Y-%m-%d %H:%M')
                 
-                # 準備寫入內容：時間, 血糖, 尿塊, 備註
-                new_row = [tw_time, current_bg, urine_clump, note]
+                # 直接寫入工作表 1
+                sh_ws1.append_row([tw_time, current_bg, urine_clump, note])
                 
-                # 這裡強制呼叫雲端寫入
-                sh_ws1.append_row(new_row)
-                
-                st.success(f"✅ 存檔成功！已同步至工作表1。({tw_time})")
+                st.success(f"✅ 成功寫入雲端！時間：{tw_time}")
                 st.balloons()
             except Exception as e:
-                st.error(f"存檔失敗：{e} (請確認 sh_ws1 是否定義正確)")
+                st.error(f"存檔依舊失敗，錯誤訊息：{e}")
 
     # --- 6. 雲端日誌與存檔 (Paulie BioScout DB) ---
     st.divider()
