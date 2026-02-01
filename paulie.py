@@ -185,33 +185,20 @@ with st.sidebar:
 # 6. 頁面 A: 偵查儀表板
 # ==========================================
 if page == PAGE_MONITOR:
-    # --- 1. 安全抓取最新數據 ---
-    stars = 1  # 預設 1 顆星（基本分）
-    gl_val = 0
-    ur_val = 0
-    
-    # 檢查 dataframe 是否存在且有資料
+    # --- 1. 計算星級 (從雲端 df_blood_glucose 抓取最新數據) ---
+    stars = 1
+    gl_val, ur_val = 0, 0
     if 'df_blood_glucose' in locals() and not df_blood_glucose.empty:
         try:
-            # 取得最後一筆資料
-            latest = df_blood_glucose.iloc[-1]
-            
-            # 這裡用 index (位置) 抓取，避免欄位名稱對不上的問題
-            # 假設第 1 欄是血糖，第 2 欄是尿塊 (請根據你實際表格順序調整)
-            gl_val = latest.iloc[1] if len(latest) > 1 else 0
-            ur_val = latest.iloc[2] if len(latest) > 2 else 0
-            
-            # 星級邏輯
+            latest_data = df_blood_glucose.iloc[-1]
+            gl_val = latest_data.get('血糖值', 0)
+            ur_val = latest_data.get('尿塊重量', 0)
             if 100 <= gl_val <= 250: stars += 1
-            if ur_val <= 208: stars += 1
-        except Exception as e:
-            # 如果還是出錯，就維持基本星數，不讓畫面崩潰
-            pass
+            if ur_val >= 35: stars += 1
+        except: pass
 
-    # --- 2. 顯示 UI ---
+    # --- 2. 頂部星級顯示 ---
     st.markdown(f"### 🐾 BioScout 健康星級：{'⭐' * stars}{'🌑' * (3-stars)}")
-    
-    # 用顏色區分狀態感
     if stars == 3:
         st.success(f"🕶️ **完美渣男** (血糖: {gl_val} / 尿塊: {ur_val}) - 小豹今日狀態極佳！")
     elif stars == 2:
@@ -221,6 +208,8 @@ if page == PAGE_MONITOR:
 
     st.divider()
     st.title("小豹專屬儀表板 𓃠")
+
+    # --- 3. 數據輸入區 ---
     with st.container():
         st.subheader("📝 數據輸入")
         col1, col2 = st.columns(2)
@@ -233,13 +222,11 @@ if page == PAGE_MONITOR:
             cat_weight = st.number_input("⚖️ 體重 (kg)", 1.0, 10.0, 5.0, 0.1)
             period = st.radio("上次施打胰島素時間：", ["☀️ 早上施打", "🌙 晚上施打"], horizontal=True)
 
+    # 調用你原本的判斷邏輯函數 (請確保這些函數在 app.py 上方已定義)
     d_title, d_msg, d_type = get_decision(current_bg, trend, hours)
     f_title, f_msg, f_type = get_food_recommendation(current_bg, trend)
 
-    real_liquid = (urine_clump / 2.6) * 1.6
-    expected_liquid = 1.5 * cat_weight * (hours if hours > 0 else 0.5)
-    u_text, u_type = get_urine_status(real_liquid, expected_liquid)
-
+    # --- 4. 偵查報告與餵食建議 ---
     st.divider()
     st.subheader("💡 偵查報告")
     st.altair_chart(draw_scout_chart(current_bg, hours), use_container_width=True)
@@ -248,76 +235,68 @@ if page == PAGE_MONITOR:
     elif d_type == "warning": st.warning(f"**{d_title}**\n\n{d_msg}")
     else: st.info(f"**{d_title}**\n\n{d_msg}")
 
-    # --- 智能餵食建議 (移動到這裡並修正縮排) ---
-    import datetime
-    import pytz
-    tw_tz = pytz.timezone('Asia/Taipei')
-    now_tw = datetime.datetime.now(tw_tz)
+    # 台北時間與餵食邏輯
+    import datetime, pytz
+    now_tw = datetime.datetime.now(pytz.timezone('Asia/Taipei'))
     current_hour = now_tw.hour
 
     st.markdown("### 🥣 智能餵食建議")
     if 5 <= current_hour < 11:
         st.success(f"🌅 **早安！現在是【早餐時段】**\n\n建議：11g GI + 33cc 水 (台北 {now_tw.strftime('%H:%M')})")
     elif 11 <= current_hour < 16:
-        st.info(f"☀️ **現在是【午餐時段】**\n\n建議：11g GI + 33cc 水 (台北 {now_tw.strftime('%H:%M')})")
+        st.info(f"☀️ **現在是【午餐時段】**\n\n建議：11g GI + 33cc 水")
     elif 16 <= current_hour < 21:
-        st.warning(f"🌆 **現在是【晚餐時段】**\n\n建議：11g GI + 33cc 水 (台北 {now_tw.strftime('%H:%M')})")
+        st.warning(f"🌆 **現在是【晚餐時段】**\n\n建議：11g GI + 33cc 水")
     else:
-        st.info(f"🌙 **現在是【深夜時段】**\n\n建議：提供少量飲水，注意血糖狀況。")
+        st.info(f"🌙 **現在是【深夜時段】**\n\n注意血糖狀況。")
 
-    # --- 3. 智能飲食建議與尿量分析 (恢復區塊) ---
-    st.subheader("💧 尿量分析與趨勢")
-    if 'df_blood_glucose' in locals() and not df_blood_glucose.empty:
-        # 繪製尿塊重量趨勢圖
-        try:
-            # 假設 '尿塊重量' 是你的欄位名稱，如果不是，請改為你的欄位名
-            st.line_chart(df_blood_glucose[['尿塊重量']])
-        except:
-            st.info("尚未有足夠的尿量數據生成圖表。")
-    else:
-        st.write("暫無數據可供分析。")
-
+    # --- 5. 腎閾值與尿量分析圖表 (補回你消失的功能) ---
     st.divider()
+    st.subheader("💧 腎閾值與尿量關聯分析")
+    if 'df_blood_glucose' in locals() and not df_blood_glucose.empty:
+        try:
+            # 建立分析用的 Dataframe，並轉換為數字
+            df_plot = df_blood_glucose.copy()
+            df_plot['血糖值'] = pd.to_numeric(df_plot['血糖值'], errors='coerce')
+            df_plot['尿塊重量'] = pd.to_numeric(df_plot['尿塊重量'], errors='coerce')
+            
+            # 同時畫出血糖與尿量的雙軸趨勢
+            st.line_chart(df_plot[['血糖值', '尿塊重量']])
+            
+            # 腎閾值醫學提示 (貓咪腎閾值約 250)
+            if not df_plot['血糖值'].empty and df_plot['血糖值'].iloc[-1] > 250:
+                st.warning("⚠️ 當前血糖高於腎閾值 (250)，腎臟正將多餘糖分排出，會帶走大量水分，請務必補足飲水！")
+        except:
+            st.info("數據轉換中，暫無法生成圖表。")
+    else:
+        st.write("尚未有足夠數據進行腎閾值分析。")
 
-    # --- 4. 寫入日誌與歷史紀錄 (恢復區塊) ---
-    # --- 4. 寫入日誌與歷史紀錄 (具備存檔功能) ---
+    # --- 6. 雲端日誌與存檔 (Paulie BioScout DB) ---
+    st.divider()
     st.subheader("📝 健康日誌")
     
     if 'df_blood_glucose' in locals() and not df_blood_glucose.empty:
-        # 顯示歷史紀錄
         st.dataframe(df_blood_glucose.tail(5), use_container_width=True)
         
         with st.expander("➕ 新增今日日誌備註"):
-            note = st.text_area("今天小豹有什麼特別狀況嗎？", placeholder="例如：精神不錯，但有點想咬醫生...")
-            
-            if st.button("儲存備註並匯出"):
+            note = st.text_area("備註：", placeholder="例如：今日精神不錯...")
+            if st.button("儲存並上傳至雲端"):
                 try:
-                    # 1. 取得當前時間
                     current_time = pd.Timestamp.now().strftime('%Y-%m-%d %H:%M')
+                    # 建立新紀錄 (請確保欄位名稱與工作表1一致)
+                    new_entry = {'時間': current_time, '血糖值': current_bg, '尿塊重量': urine_clump, '備註': note}
                     
-                    # 2. 建立新的一列 (確保欄位與你的 Excel 一致)
-                    new_entry = {
-                        '時間': current_time,
-                        '備註': note
-                        # 你可以在這裡加入其他預設欄位，例如血糖: None
-                    }
-                    
-                    # 3. 匯入並更新 dataframe
+                    # 1. 更新本地變數
                     df_blood_glucose = pd.concat([df_blood_glucose, pd.DataFrame([new_entry])], ignore_index=True)
                     
-                    # 4. 儲存回 Excel 或 CSV (請確認你的檔案路徑)
-                    # 如果是 CSV:
-                    df_blood_glucose.to_csv('blood_glucose.csv', index=False)
-                    # 如果是 Excel:
-                    # df_blood_glucose.to_excel('blood_glucose.xlsx', index=False)
+                    # 2. 寫入 Google Sheets (工作表1)
+                    # 假設你之前定義的 worksheet1 叫 sh_ws1
+                    sh_ws1.append_row([current_time, current_bg, urine_clump, note])
                     
-                    st.success(f"✅ 成功寫入日誌並儲存！ (時間: {current_time})")
-                    st.balloons() # 撒個花慶祝一下
-                    
+                    st.success("✅ 已同步至 Paulie BioScout DB 工作表1")
+                    st.balloons()
                 except Exception as e:
-                    st.error(f"儲存失敗：{e}")
-    else:
-        st.info("目前尚無資料表，請先確認數據來源。")
+                    st.error(f"存檔失敗：{e}")
 
 # ==========================================
 # 7. 頁面 B: 醫療病歷庫
