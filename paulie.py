@@ -318,31 +318,6 @@ if page == PAGE_MONITOR:
                     st.error(f"儲存失敗：{e}")
     else:
         st.info("目前尚無資料表，請先確認數據來源。")
-    st.subheader("💧 腎閾值與尿量關聯分析")
-    
-    if not df_all.empty:
-        try:
-            # 1. 準備繪圖數據
-            # 確保血糖和尿量是數字格式
-            df_plot = df_all.copy()
-            df_plot['血糖值'] = pd.to_numeric(df_plot['血糖值'], errors='coerce')
-            df_plot['尿塊重量'] = pd.to_numeric(df_plot['尿塊重量'], errors='coerce')
-
-            # 2. 建立雙軸圖表 (使用 st.line_chart 或 plotly)
-            # 這裡我們用最直觀的方式：對比血糖與尿量的趨勢
-            st.line_chart(df_plot[['血糖值', '尿塊重量']])
-
-            # 3. 腎閾值醫學提示
-            current_gl = df_plot['血糖值'].iloc[-1]
-            if current_gl > 250:
-                st.warning(f"⚠️ 當前血糖 ({current_gl}) 已超過貓咪腎閾值 (250 mg/dL)。這會導致滲透性利尿，請留意尿塊是否異常變大且稀薄。")
-            else:
-                st.success(f"✅ 當前血糖 ({current_gl}) 低於腎閾值，腎臟負擔較小。")
-
-        except Exception as e:
-            st.info("圖表生成失敗，請檢查『血糖值』與『尿塊重量』欄位是否有數值。")
-    else:
-        st.write("尚未有足夠數據進行腎閾值分析。")
 
 # ==========================================
 # 7. 頁面 B: 醫療病歷庫
