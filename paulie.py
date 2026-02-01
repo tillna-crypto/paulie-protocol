@@ -185,84 +185,76 @@ with st.sidebar:
 # 6. 頁面 A: 偵查儀表板
 # ==========================================
 if page == PAGE_MONITOR:
-    # --- 1. 初始化與數據抓取 ---
-    # 確保 sh_ws1 已經在程式上方定義：sh_ws1 = sh.worksheet("工作表1")
-    try:
-        data_all = sh_ws1.get_all_records()
-        df_blood_glucose = pd.DataFrame(data_all)
-    except:
-        df_blood_glucose = pd.DataFrame(columns=['時間', '血糖值', '尿塊重量', '備註'])
+    # --- 1. 確保雲端連線變數 (防錯機制) ---
+    # 請確認你程式上方定義工作表 1 的變數名稱，如果叫 worksheet1 請改為 sh_ws1
+    if 'sh_ws1' not in locals():
+        try:
+            sh_ws1 = sh.worksheet("工作表1")
+        except:
+            st.error("⚠️ 找不到 Google Sheets 的 '工作表1'，請檢查分頁名稱！")
+
+    st.title("小豹專屬儀表板 𓃠")
 
     # --- 2. 數據輸入區 ---
-    st.title("小豹專屬儀表板 𓃠")
     with st.container():
-        st.subheader("📝 今日數據觀測")
+        st.subheader("📝 數據輸入")
         col1, col2 = st.columns(2)
         with col1:
             current_bg = st.number_input("🩸 血糖 (mg/dL)", 0, 600, 350)
-            hours = st.slider("⏱️ 距離上次施打 (小時)", 0.0, 12.0, 2.0, 0.5)
+            # 維持你最看重的：以 0.5 (半小時) 為區間的滑桿
+            hours = st.slider("⏱️ 距離上次施打胰島素 (小時)", 0.0, 12.0, 2.0, 0.5, format="%.1f hr")
             trend = st.selectbox("📈 趨勢", ["➡️ 平穩", "↘️ 緩步下降", "⬇️ 快速下降", "↗️ 緩步上升", "⬆️ 快速上升"])
         with col2:
             urine_clump = st.number_input("💧 尿塊重 (g)", 0, 500, 0)
             cat_weight = st.number_input("⚖️ 體重 (kg)", 1.0, 10.0, 5.0, 0.1)
-            
-    # --- 3. 腎閾值分析與圖表 (核心邏輯修正) ---
+            period = st.radio("上次施打胰島素時間：", ["☀️ 早上施打", "🌙 晚上施打"], horizontal=True)
+
+    # --- 3. 核心功能：偵查報告 (半小時偵測圖表) ---
     st.divider()
-    st.subheader("💧 腎閾值與尿量分析")
-    
-    # 這裡計算當前的腎閾值狀況
-    renal_threshold = 250
-    if current_bg > renal_threshold:
-        st.warning(f"⚠️ 警報：當前血糖 {current_bg} 已超過腎閾值 ({renal_threshold})！腎臟開始排糖並帶走水分，預期尿量會增加。")
+    st.subheader("💡 偵查報告 (半小時血糖預測)")
+    # 這裡調用你原本寫好的半小時區間繪圖函數
+    try:
+        st.altair_chart(draw_scout_chart(current_bg, hours), use_container_width=True)
+    except NameError:
+        st.error("找不到 draw_scout_chart 函數，請確保該函數定義在程式上方。")
+
+    # 執行原本的決策邏輯
+    d_title, d_msg, d_type = get_decision(current_bg, trend, hours)
+    if d_type == "error": st.error(f"**{d_title}**\n\n{d_msg}")
+    elif d_type == "warning": st.warning(f"**{d_title}**\n\n{d_msg}")
+    else: st.info(f"**{d_title}**\n\n{d_msg}")
+
+    # --- 4. 腎閾值分析 (即時判定) ---
+    st.subheader("💧 腎閾值即時分析")
+    if current_bg > 250:
+        st.warning(f"⚠️ 血糖 {current_bg} 已超過腎閾值 (250)！小豹此時會產生尿糖並帶走水分，請觀察尿塊是否變大。")
     else:
-        st.success(f"✅ 穩定：當前血糖 {current_bg} 低於腎閾值 ({renal_threshold})。")
+        st.success(f"✅ 血糖 {current_bg} 低於腎閾值，腎臟負荷正常。")
 
-    # 顯示圖表：結合歷史數據與剛才輸入的數據
-    if not df_blood_glucose.empty:
-        # 建立一個臨時的繪圖表格，包含最新輸入的這一筆
-        new_row_temp = pd.DataFrame([{'時間': '現在', '血糖值': current_bg, '尿塊重量': urine_clump}])
-        df_for_plot = pd.concat([df_blood_glucose, new_row_temp], ignore_index=True)
-        
-        # 強制轉型數字，避免繪圖報錯
-        df_for_plot['血糖值'] = pd.to_numeric(df_for_plot['血糖值'], errors='coerce')
-        df_for_plot['尿塊重量'] = pd.to_numeric(df_for_plot['尿塊重量'], errors='coerce')
-        
-        # 繪製雙曲線圖
-        st.line_chart(df_for_plot[['血糖值', '尿塊重量']].tail(10)) 
-    else:
-        st.info("💡 歷史數據不足，請先完成一次【數據存檔】來啟動圖表。")
-
-    # --- 4. 偵查報告與餵食建議 (沿用你原本的內容) ---
-    # ... (此處保留 get_decision 和智能餵食建議的代碼) ...
-
-    # --- 5. 存檔功能 (真正寫入工作表1) ---
+    # --- 5. 智能餵食建議 ---
     st.divider()
-    st.subheader("💾 數據存檔")
-    with st.expander("確認今日數據並存檔"):
-        note = st.text_area("備註內容", placeholder="小豹今天想咬誰？")
-        if st.button("🔥 點我存檔至 Google Sheets (工作表1)"):
+    # (此處保留你原本的台北時間餵食邏輯代碼...)
+
+    # --- 6. 數據存檔 (修正 sh_ws1 報錯問題) ---
+    st.divider()
+    st.subheader("💾 數據存檔至 Paulie BioScout DB")
+    with st.expander("確認今日數據並點擊存檔"):
+        note = st.text_area("備註內容", placeholder="觀察到的精神狀況...")
+        if st.button("🔥 點我存檔至 Google Sheets"):
             try:
-                # 取得台北時間
                 import datetime, pytz
-                current_time = datetime.datetime.now(pytz.timezone('Asia/Taipei')).strftime('%Y-%m-%d %H:%M')
+                tw_time = datetime.datetime.now(pytz.timezone('Asia/Taipei')).strftime('%Y-%m-%d %H:%M')
                 
-                # 準備寫入的格式 (順序必須跟你的 Google Sheet 標題一致)
-                # 假設順序是：時間, 血糖值, 尿塊重量, 備註
-                row_to_add = [current_time, current_bg, urine_clump, note]
+                # 準備寫入內容：時間, 血糖, 尿塊, 備註
+                new_row = [tw_time, current_bg, urine_clump, note]
                 
-                # 執行寫入
-                sh_ws1.append_row(row_to_add)
+                # 這裡強制呼叫雲端寫入
+                sh_ws1.append_row(new_row)
                 
-                st.success(f"✅ 存檔成功！已寫入工作表1。時間：{current_time}")
+                st.success(f"✅ 存檔成功！已同步至工作表1。({tw_time})")
                 st.balloons()
-                # 強制重新整理以抓取新數據
-                st.rerun()
             except Exception as e:
-                st.error(f"存檔失敗，請檢查 API 權限或網路：{e}")
-
-    # 顯示歷史清單
-    st.write("📖 最近 5 筆雲端紀錄")
-    st.table(df_blood_glucose.tail(5))
+                st.error(f"存檔失敗：{e} (請確認 sh_ws1 是否定義正確)")
 
     # --- 6. 雲端日誌與存檔 (Paulie BioScout DB) ---
     st.divider()
