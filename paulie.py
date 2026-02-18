@@ -82,7 +82,7 @@ if page == "📊 儀表板監控":
     if st.button("💾 存檔至工作表1"):
         if not isinstance(gc_conn, str):
             try:
-                sh = gc_conn.open("Paulie BioScout DB")
+                sh = gc_conn.open("Paulie_BioScout_DB")
                 ws1 = sh.worksheet("工作表1")
                 now = datetime.datetime.now(pytz.timezone('Asia/Taipei')).strftime('%m-%d %H:%M')
                 ws1.append_row([now, current_bg, urine_clump, f"體重:{cat_weight}"])
@@ -98,7 +98,7 @@ elif page == "📋 醫療回診紀錄":
     
     if not isinstance(gc_conn, str):
         try:
-            sh = gc_conn.open("Paulie BioScout DB")
+            sh = gc_conn.open("Paulie_BioScout_DB")
             ws2 = sh.worksheet("工作表2")
             
             # 修復截圖中的重複表頭錯誤：改用 get_all_values() 並手動封裝
