@@ -50,7 +50,7 @@ gc = init_connection()
 with st.sidebar:
     # 品牌 Logo
     if os.path.exists("paulie_logo.png"):
-        st.image("paulie_logo.jpg", use_container_width=True)
+        st.image("paulie_logo.png", use_container_width=True)
     
     st.title("Paulie Protocol")
     st.caption("v2.1 | 倪小豹醫療照護系統")
