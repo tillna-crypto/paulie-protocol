@@ -37,11 +37,11 @@ with st.sidebar:
     st.markdown("### 倪小豹專屬系統")
     
     # 修正：根據你上傳的檔名 paulie_logo.jpg
-    logo_file = "paulie_logo.jpg"
+    logo_file = "paulie_logo.png"
     if os.path.exists(logo_file):
         st.image(logo_file, width=220, caption="小豹守護中")
     else:
-        st.warning("⚠️ GitHub 未偵測到 paulie_logo.jpg")
+        st.warning("⚠️ GitHub 未偵測到 paulie_logo.png")
     
     st.write("---")
     page = st.radio("功能選單", ["📊 儀表板監控", "📋 醫療紀錄與生化填報"])
