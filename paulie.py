@@ -93,7 +93,7 @@ elif page == "📋 醫療紀錄與生化填報":
     
     if not isinstance(gc, str):
         try:
-            sh = gc.open("Paulie BioScout DB")
+            sh = gc.open("Paulie_BioScout_DB")
             ws2 = sh.worksheet("工作表2")
             
             # --- 💡 核心修正：手動強制定義標題，無視試算表中的格式錯誤 ---
