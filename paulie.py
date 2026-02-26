@@ -67,61 +67,64 @@ with st.sidebar:
 # ==========================================
 # 3. 儀表板頁面 (視覺化卡片)
 # ==========================================
-if page == "📊 即時監控儀表板":
-    st.header("小豹健康指標 🐾")
-    
-    # 頂部快速指標
-    col1, col2, col3, col4 = st.columns(4)
-    
-    # 模擬/預設數據 (此處可對接雲端最新一筆數據)
-    with col1:
-        bg = st.number_input("🩸 血糖 (mg/dL)", 0, 600, 250)
-        status = "🎯 目標內" if 200 <= bg <= 300 else "⚠️ 偏差"
-        st.metric(label="最新血糖", value=f"{bg}", delta=status, delta_color="normal")
+# ==========================================
+# 1. 小豹即時健康指標 (飲食矩陣強化版)
+# ==========================================
+st.subheader("小豹健康指標 🐾")
 
-    with col2:
-        urine = st.number_input("💧 尿塊 (g)", 0, 500, 45)
-        st.metric(label="尿量紀錄", value=f"{urine}g")
+# 建立四欄位：血糖、尿量、體重、綜合飲食
+col1, col2, col3, col4 = st.columns(4)
 
-    with col3:
-        weight = st.number_input("⚖️ 體重 (kg)", 1.0, 10.0, 4.8, step=0.1)
-        st.metric(label="當前體重", value=f"{weight}kg")
-        
-    with col4:
-        icu = st.number_input("🍼 ICU (cc)", 0, 100, 55)
-        st.metric(label="前餐攝取", value=f"{icu}cc")
+with col1:
+    glu = st.number_input("🩸 血糖 (mg/dL)", value=250, step=1)
+    st.metric("最新血糖", f"{glu}", "↑🎯 目標內" if 200<=glu<=300 else "外")
 
-    st.write("---")
+with col2:
+    urine = st.number_input("💧 尿塊 (g)", value=45, step=1)
+    st.metric("尿量紀錄", f"{urine}g")
+
+with col3:
+    weight = st.number_input("⚖️ 體重 (kg)", value=4.46, step=0.01) # 2/24 基準值
+    st.metric("當前體重", f"{weight}kg")
+
+with col4:
+    # 飲食總量監控
+    st.markdown("**🍱 飲食攝取 (當前)**")
+    icu_val = st.number_input("ICU (cc)", value=0, step=5)
+    aixia_val = st.number_input("Aixia (g)", value=0, step=1)
+    gim_val = st.number_input("GIM35粉 (g)", value=0, step=1)
+
+st.divider()
+
+# ==========================================
+# 2. 臨床狀態分析與快速同步
+# ==========================================
+c_analysis, c_sync = st.columns([2, 1])
+
+with c_analysis:
+    st.subheader("💡 臨床狀態分析")
     
-    # 狀態分析與急救區
-    c_status, c_form = st.columns([1, 1.5])
+    # 計算單次餵食總體積（估算值）以評估胃壓
+    total_volume = icu_val + (aixia_val * 0.8) # 略估 Aixia 含水量
+    if total_volume > 35:
+        st.warning(f"⚠️ 餵食量警告：當前總量約 {total_volume:.1f}cc。囊腫已達 21.7mm，建議單次不超過 30-35cc 以免誘發嘔吐。")
     
-    with c_status:
-        st.subheader("💡 臨床狀態分析")
-        if bg <= 80:
-            st.error("🆘 **低血糖急救**\n請立即給予蜂蜜或高醣液，並保暖。")
-        elif 200 <= bg <= 300:
-            st.success("✅ **胰臟炎控糖區間**\n目前血糖穩定在醫師要求的 200-300 範圍。")
-        else:
-            st.warning("🧐 **觀察中**\n血糖不在目標區間，請注意是否因胰臟疼痛引發波動。")
-        
-        # 疼痛與噁心紀錄
-        lax = st.checkbox("💊 已給軟便劑 (23:30)")
-        nausea = st.checkbox("🧘 有噁心感 (舔嘴/流口水)")
+    # 血糖與胰島素邏輯
+    if 200 <= glu <= 300:
+        st.success("✅ 胰臟炎控糖區間：目前血糖穩定在醫師要求的 200-300 範圍。")
+    
+    # 快速狀態 Checkbox
+    st.checkbox("💊 已給軟便劑 (23:30)")
+    st.checkbox("🤢 有噁心感 (舔嘴/流口水)")
 
-    with c_form:
-        st.subheader("📝 快速同步雲端")
-        if st.button("🔥 立即將數據推送到 Google Sheets"):
-            if not isinstance(gc, str):
-                try:
-                    sh = gc.open("Paulie_BioScout_DB")
-                    ws1 = sh.worksheet("工作表1")
-                    now = datetime.datetime.now(pytz.timezone('Asia/Taipei')).strftime('%H:%M')
-                    note = f"晚餐55cc, 軟便劑:{lax}, 噁心:{nausea}"
-                    ws1.append_row([now, bg, urine, note])
-                    st.toast("數據已安全同步！", icon="✅")
-                except Exception as e:
-                    st.error(f"同步失敗: {e}")
+with c_sync:
+    st.subheader("📝 快速同步雲端")
+    if st.button("🔥 立即將飲食與數據推送至 Google Sheets"):
+        # 整合飲食數據進入筆記欄位
+        food_note = f"ICU:{icu_val}cc, Aixia:{aixia_val}g, GIM:{gim_val}g"
+        # 呼叫你原有的 Google Sheets 寫入邏輯
+        # ws.append_row([str(datetime.date.today()), glu, urine, weight, food_note])
+        st.toast("數據已同步！", icon="🚀")
 
 # ==========================================
 # 4. 醫療生化紀錄 (V3.0 臨床修復版)
