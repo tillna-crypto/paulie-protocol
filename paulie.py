@@ -135,63 +135,60 @@ elif page == "📋 醫療生化紀錄":
             ws2 = sh.worksheet("工作表2")
             all_vals = ws2.get_all_values()
             
-            # 定義 Protocol 規範的 7 欄位結構
+            # 定義我們需要的 7 個核心欄位
             headers = ["日期", "BUN", "CREA", "醫院體重", "醫院血糖", "嘔吐次數", "診斷筆記"]
             
             if len(all_vals) > 1:
-                # 讀取並轉換資料為 DataFrame
-                df = pd.DataFrame(all_vals[1:], columns=headers[:len(all_vals[0])])
+                # 關鍵修復：強制只取前 7 欄數據，避免 15 欄報錯
+                raw_data = [row[:7] for row in all_vals[1:]] 
                 
-                # --- 自動修復：若舊資料沒嘔吐欄位，則補 0 ---
-                if "嘔吐次數" not in df.columns:
-                    df["嘔吐次數"] = 0
+                # 確保每一列都有 7 個元素（若不足則補空值）
+                fixed_data = [row + [""] * (7 - len(row)) for row in raw_data]
                 
-                # 數據清理 (轉換為數值以供繪圖)
+                df = pd.DataFrame(fixed_data, columns=headers)
+                
+                # 數據轉換以利繪圖
                 df['日期'] = pd.to_datetime(df['日期'])
                 df['醫院體重'] = pd.to_numeric(df['醫院體重'], errors='coerce')
                 df['嘔吐次數'] = pd.to_numeric(df['嘔吐次數'], errors='coerce').fillna(0)
                 df = df.sort_values("日期")
 
-                # --- 📈 趨勢分析區塊 (Paulie Protocol 視覺風格) ---
-                st.subheader("📈 臨床趨勢分析")
-                with st.container():
-                    # 建立雙軸對比圖 (體重 vs 嘔吐)
-                    # 這裡使用 st.line_chart 的簡易版，或用複合圖表
-                    chart_data = df.tail(15).copy() # 取最近 15 筆
-                    
-                    # 為了視覺化清晰，我們分開顯示兩張圖或疊加
-                    st.write("體重 (kg) 與 嘔吐頻率 (次) 關聯監控")
-                    st.line_chart(chart_data.set_index('日期')[['醫院體重', '嘔吐次數']])
-                    st.caption("💡 警訊：若體重下降同時嘔吐次數上升，可能代表囊腫壓迫加劇。")
+                # --- 📈 趨勢分析區塊 ---
+                st.subheader("📈 體重與嘔吐關聯趨勢")
+                chart_data = df.tail(15).copy()
+                st.line_chart(chart_data.set_index('日期')[['醫院體重', '嘔吐次數']])
+                st.caption("💡 警訊：若體重明顯下降且嘔吐上升，需注意胰囊是否壓迫幽門。")
 
-                with st.expander("📂 查看原始數據清單", expanded=False):
-                    st.table(df.tail(5))
+                with st.expander("📂 查看完整原始數據", expanded=False):
+                    st.table(df.tail(10))
             else:
                 st.info("尚無數據紀錄。")
 
             st.divider()
             
-            # --- ➕ 新增紀錄表單 ---
-            st.subheader("➕ 新增回診紀錄")
+            # --- ➕ 綜合紀錄表單 (含 Palladia) ---
+            st.subheader("➕ 新增臨床觀察紀錄")
             with st.form("medical_entry"):
                 col_l, col_r = st.columns(2)
-                
                 with col_l:
                     d = st.date_input("檢查日期")
                     b = st.text_input("BUN (mg/dL)")
-                    # 新增的嘔吐次數 Slider
-                    v = st.slider("今日嘔吐次數 (24h)", 0, 10, 0, help="觀察到的小豹嘔吐總次數")
+                    c = st.text_input("CREA (mg/dL)")
+                    v = st.slider("今日嘔吐次數 (24h)", 0, 10, 0)
                 
                 with col_r:
                     w = st.text_input("醫院體重 (kg)")
-                    c = st.text_input("CREA (mg/dL)")
                     g = st.text_input("醫院血糖 (mg/dL)")
+                    # 整合 Palladia
+                    p_drug = st.selectbox("💊 Palladia 投藥", ["未投藥", "完整投藥", "隨食物給予"])
                 
-                note = st.text_area("影像觀察 (如：胰臟囊腫擴大、腸道蠕動狀況)")
+                note = st.text_area("影像觀察 / 副作用筆記 (如：黑糞、胰囊大小變動)")
                 
                 if st.form_submit_button("📁 永久存檔至雲端"):
-                    # 依照 [日期, BUN, CREA, 體重, 血糖, 嘔吐, 筆記] 順序寫入
-                    ws2.append_row([str(d), b, c, w, g, str(v), note])
+                    # 整合筆記內容
+                    full_note = f"【{p_drug}】 {note}"
+                    # 寫入 7 欄位
+                    ws2.append_row([str(d), b, c, w, g, str(v), full_note])
                     st.toast("臨床數據已安全存檔", icon="🏥")
                     st.rerun()
 
