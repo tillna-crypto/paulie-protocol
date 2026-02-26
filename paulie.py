@@ -133,22 +133,46 @@ elif page == "📋 醫療生化紀錄":
         try:
             sh = gc.open("Paulie_BioScout_DB")
             ws2 = sh.worksheet("工作表2")
-            all_vals = ws2.get_all_values()
             
-            headers = ["日期", "BUN", "CREA", "醫院體重", "醫院血糖", "診斷筆記"]
-            
-            # 專業數據表格
+            # --- 區塊 A: 雲端數據回顯 ---
             with st.expander("📂 查看完整雲端資料庫", expanded=True):
+                all_vals = ws2.get_all_values()
+                headers = ["日期", "BUN", "CREA", "醫院體重", "醫院血糖", "診斷筆記"]
                 if len(all_vals) > 1:
-                    cleaned_data = [row[:6] for row in all_vals[1:]]
-                    df = pd.DataFrame(cleaned_data, columns=headers)
-                    st.table(df.tail(5)) # 顯示最近 5 筆
+                    df = pd.DataFrame([row[:6] for row in all_vals[1:]], columns=headers)
+                    st.table(df.tail(5))
                 else:
                     st.info("尚無數據紀錄。")
 
             st.write("---")
-            
-            # 手寫筆記區
+
+            # --- 區塊 B: Palladia 投藥實驗紀錄 (獨立模組) ---
+            # 這裡調用你剛才定義的函數，或直接嵌入
+            st.markdown('<div class="medical-card">', unsafe_allow_html=True)
+            with st.expander("💊 Palladia 投藥實驗監測 (23:00)", expanded=False):
+                col1, col2 = st.columns(2)
+                with col1:
+                    p_status = st.radio("給藥方式", ["完整投藥", "隨食物給予"], horizontal=True)
+                with col2:
+                    p_time = st.time_input("實際投藥時間")
+                
+                p_side_effects = st.multiselect(
+                    "投藥後觀察", ["無異常", "黑糞(出血徵兆)", "嘔吐", "極度萎靡"]
+                )
+                
+                if "黑糞(出血徵兆)" in p_side_effects:
+                    st.error("🚨 警告：Palladia 可能引發消化道潰瘍，請立即聯繫蔣醫師。")
+                
+                if st.button("📝 提交 Palladia 日誌"):
+                    # 將 Palladia 資訊轉化為字串存入「診斷筆記」或特定欄位
+                    p_note = f"【Palladia】{p_status} / 觀察：{', '.join(p_side_effects)}"
+                    ws2.append_row([str(datetime.date.today()), "", "", "", "", p_note])
+                    st.toast("投藥實驗紀錄已存檔", icon="💊")
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            st.write("---")
+
+            # --- 區塊 C: 標準回診紀錄表單 ---
             st.subheader("➕ 新增回診紀錄")
             with st.form("medical_entry"):
                 l, r = st.columns(2)
@@ -159,15 +183,16 @@ elif page == "📋 醫療生化紀錄":
                     c = st.text_input("CREA")
                     w = st.text_input("醫院體重")
                 
-                note = st.text_area("影像觀察 (如：胰臟囊腫擴大 21mm、右上腹密度增加)")
+                note = st.text_area("影像觀察 (如：胰臟囊腫擴大 21mm)")
                 
                 if st.form_submit_button("📁 永久存檔"):
                     ws2.append_row([str(d), b, c, w, "", note])
                     st.toast("醫療紀錄已歸檔", icon="🏥")
                     st.rerun()
-        except Exception as e:
-            st.error(f"讀取異常: {e}")
 
+        except Exception as e:
+            st.error(f"醫療資料庫同步異常: {e}")
+            
 # ==========================================
 # 5. 照護手冊 (功能性美化)
 # ==========================================
