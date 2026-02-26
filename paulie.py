@@ -124,10 +124,10 @@ if page == "📊 即時監控儀表板":
                     st.error(f"同步失敗: {e}")
 
 # ==========================================
-# 4. 醫療生化紀錄 (專業表格 + 趨勢分析)
+# 4. 醫療生化紀錄 (V3.0 臨床強化版)
 # ==========================================
 elif page == "📋 醫療生化紀錄":
-    st.header("🏥 歷史生化與影像日誌")
+    st.header("🏥 臨床生化監測面板")
     
     if not isinstance(gc, str):
         try:
@@ -135,65 +135,59 @@ elif page == "📋 醫療生化紀錄":
             ws2 = sh.worksheet("工作表2")
             all_vals = ws2.get_all_values()
             
-            # 定義我們需要的 7 個核心欄位
-            headers = ["日期", "BUN", "CREA", "醫院體重", "醫院血糖", "嘔吐次數", "診斷筆記"]
+            # 擴展至 10 個主要監控欄位
+            headers = ["日期", "嘔吐", "體重", "BUN", "CREA", "血糖", "電解質(Na/K)", "Palladia", "影像筆記"]
             
+            # --- 數據呈現與自動警告 ---
             if len(all_vals) > 1:
-                # 關鍵修復：強制只取前 7 欄數據，避免 15 欄報錯
-                raw_data = [row[:7] for row in all_vals[1:]] 
+                df = pd.DataFrame([row[:9] for row in all_vals[1:]], columns=headers)
                 
-                # 確保每一列都有 7 個元素（若不足則補空值）
-                fixed_data = [row + [""] * (7 - len(row)) for row in raw_data]
-                
-                df = pd.DataFrame(fixed_data, columns=headers)
-                
-                # 數據轉換以利繪圖
-                df['日期'] = pd.to_datetime(df['日期'])
-                df['醫院體重'] = pd.to_numeric(df['醫院體重'], errors='coerce')
-                df['嘔吐次數'] = pd.to_numeric(df['嘔吐次數'], errors='coerce').fillna(0)
-                df = df.sort_values("日期")
+                # 臨床數值自動檢查
+                latest = df.iloc[-1]
+                try:
+                    curr_bun = float(latest['BUN'])
+                    curr_crea = float(latest['CREA'])
+                    if curr_bun > 29 or curr_crea > 1.6:
+                        st.error(f"⚠️ 臨床警訊：最近一次腎指標偏高 (BUN:{curr_bun}, CREA:{curr_crea})，請注意飲水量及嘔吐狀況。")
+                except:
+                    pass
 
-                # --- 📈 趨勢分析區塊 ---
-                st.subheader("📈 體重與嘔吐關聯趨勢")
-                chart_data = df.tail(15).copy()
-                st.line_chart(chart_data.set_index('日期')[['醫院體重', '嘔吐次數']])
-                st.caption("💡 警訊：若體重明顯下降且嘔吐上升，需注意胰囊是否壓迫幽門。")
-
-                with st.expander("📂 查看完整原始數據", expanded=False):
-                    st.table(df.tail(10))
-            else:
-                st.info("尚無數據紀錄。")
+                with st.expander("📂 展開完整歷史數據 (前 10 筆)", expanded=False):
+                    st.dataframe(df.tail(10), use_container_width=True)
 
             st.divider()
             
-            # --- ➕ 綜合紀錄表單 (含 Palladia) ---
-            st.subheader("➕ 新增臨床觀察紀錄")
-            with st.form("medical_entry"):
-                col_l, col_r = st.columns(2)
-                with col_l:
-                    d = st.date_input("檢查日期")
-                    b = st.text_input("BUN (mg/dL)")
-                    c = st.text_input("CREA (mg/dL)")
-                    v = st.slider("今日嘔吐次數 (24h)", 0, 10, 0)
+            # --- ➕ 擴充型手動填寫欄位 ---
+            st.subheader("➕ 登錄新臨床觀察 (包含電解質與胰臟狀態)")
+            with st.form("comprehensive_medical_entry"):
+                c1, c2, c3 = st.columns(3)
                 
-                with col_r:
-                    w = st.text_input("醫院體重 (kg)")
-                    g = st.text_input("醫院血糖 (mg/dL)")
-                    # 整合 Palladia
-                    p_drug = st.selectbox("💊 Palladia 投藥", ["未投藥", "完整投藥", "隨食物給予"])
+                with c1:
+                    d = st.date_input("紀錄日期")
+                    v = st.slider("今日嘔吐次數", 0, 10, 0)
+                    w = st.text_input("體重 (kg)", placeholder="4.46") # 參考最新報價 
                 
-                note = st.text_area("影像觀察 / 副作用筆記 (如：黑糞、胰囊大小變動)")
+                with c2:
+                    b = st.text_input("BUN (15-29)", placeholder="28")
+                    c = st.text_input("CREA (0.9-1.6)", placeholder="1.5")
+                    g = st.text_input("Glu 血糖", placeholder="258")
                 
-                if st.form_submit_button("📁 永久存檔至雲端"):
-                    # 整合筆記內容
-                    full_note = f"【{p_drug}】 {note}"
-                    # 寫入 7 欄位
-                    ws2.append_row([str(d), b, c, w, g, str(v), full_note])
-                    st.toast("臨床數據已安全存檔", icon="🏥")
+                with c3:
+                    nak = st.text_input("電解質 Na/K", placeholder="164/4.4")
+                    p_drug = st.selectbox("💊 Palladia", ["無投藥", "完整", "隨餐", "停藥"])
+                
+                note = st.text_area("影像觀察 (例如：囊腫 21.7mm、胰臟邊緣不整)", placeholder="請註明嘔吐物內容及食慾狀態")
+                
+                if st.form_submit_button("📁 確認存檔並同步雲端"):
+                    # 按照 headers 順序寫入數據
+                    new_row = [str(d), str(v), w, b, c, g, nak, p_drug, note]
+                    ws2.append_row(new_row)
+                    st.balloons()
+                    st.success("數據已同步。")
                     st.rerun()
 
         except Exception as e:
-            st.error(f"醫療資料庫同步異常: {e}")
+            st.error(f"資料庫連線中斷: {e}")
             
 # ==========================================
 # 5. 照護手冊 (功能性美化)
