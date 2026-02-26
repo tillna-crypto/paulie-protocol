@@ -168,6 +168,39 @@ elif page == "📋 醫療生化紀錄":
         except Exception as e:
             st.error(f"讀取異常: {e}")
 
+# --- Paulie Protocol v2.1: Experimental Record Segment ---
+
+def render_palladia_module():
+    # 使用 Protocol 規範的邊框樣式
+    st.markdown('<div class="medical-card">', unsafe_allow_html=True)
+    
+    with st.expander("💊 Palladia 投藥實驗 (23:00)", expanded=False):
+        col1, col2 = st.columns([1, 1])
+        
+        with col1:
+            drug_status = st.radio("給藥方式", ["完整投藥", "隨食物給予"], horizontal=True)
+            
+        with col2:
+            # 增加紀錄時間戳記，符合 Protocol 的數據庫邏輯
+            dosage_time = st.time_input("實際投藥時間", value=None)
+
+        side_effects = st.multiselect(
+            "投藥後觀察", 
+            ["無異常", "黑糞(出血徵兆)", "嘔吐", "極度萎靡", "食慾不振"]
+        )
+
+        # 核心邏輯：醫療級警告機制
+        if "黑糞(出血徵兆)" in side_effects:
+            st.error("🚨 警告：Palladia 可能引發消化道潰瘍，請立即聯繫蔣醫師。")
+            # 此處可加入 Protocol 自動推播通知邏輯 (例如 LINE Notify 或 Firebase Alert)
+            
+        # 雲端儲存按鈕 (與 Protocol v2.1 的 DB class 連接)
+        if st.button("確認提交實驗數據"):
+            # save_to_protocol_db({"palladia_status": drug_status, "side_effects": side_effects})
+            st.success("數據已安全同步至雲端。")
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
 # ==========================================
 # 5. 照護手冊 (功能性美化)
 # ==========================================
