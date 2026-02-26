@@ -124,7 +124,7 @@ if page == "📊 即時監控儀表板":
                     st.error(f"同步失敗: {e}")
 
 # ==========================================
-# 4. 醫療生化紀錄 (專業表格)
+# 4. 醫療生化紀錄 (專業表格 + 趨勢分析)
 # ==========================================
 elif page == "📋 醫療生化紀錄":
     st.header("🏥 歷史生化與影像日誌")
@@ -133,61 +133,66 @@ elif page == "📋 醫療生化紀錄":
         try:
             sh = gc.open("Paulie_BioScout_DB")
             ws2 = sh.worksheet("工作表2")
+            all_vals = ws2.get_all_values()
             
-            # --- 區塊 A: 雲端數據回顯 ---
-            with st.expander("📂 查看完整雲端資料庫", expanded=True):
-                all_vals = ws2.get_all_values()
-                headers = ["日期", "BUN", "CREA", "醫院體重", "醫院血糖", "診斷筆記"]
-                if len(all_vals) > 1:
-                    df = pd.DataFrame([row[:6] for row in all_vals[1:]], columns=headers)
+            # 定義 Protocol 規範的 7 欄位結構
+            headers = ["日期", "BUN", "CREA", "醫院體重", "醫院血糖", "嘔吐次數", "診斷筆記"]
+            
+            if len(all_vals) > 1:
+                # 讀取並轉換資料為 DataFrame
+                df = pd.DataFrame(all_vals[1:], columns=headers[:len(all_vals[0])])
+                
+                # --- 自動修復：若舊資料沒嘔吐欄位，則補 0 ---
+                if "嘔吐次數" not in df.columns:
+                    df["嘔吐次數"] = 0
+                
+                # 數據清理 (轉換為數值以供繪圖)
+                df['日期'] = pd.to_datetime(df['日期'])
+                df['醫院體重'] = pd.to_numeric(df['醫院體重'], errors='coerce')
+                df['嘔吐次數'] = pd.to_numeric(df['嘔吐次數'], errors='coerce').fillna(0)
+                df = df.sort_values("日期")
+
+                # --- 📈 趨勢分析區塊 (Paulie Protocol 視覺風格) ---
+                st.subheader("📈 臨床趨勢分析")
+                with st.container():
+                    # 建立雙軸對比圖 (體重 vs 嘔吐)
+                    # 這裡使用 st.line_chart 的簡易版，或用複合圖表
+                    chart_data = df.tail(15).copy() # 取最近 15 筆
+                    
+                    # 為了視覺化清晰，我們分開顯示兩張圖或疊加
+                    st.write("體重 (kg) 與 嘔吐頻率 (次) 關聯監控")
+                    st.line_chart(chart_data.set_index('日期')[['醫院體重', '嘔吐次數']])
+                    st.caption("💡 警訊：若體重下降同時嘔吐次數上升，可能代表囊腫壓迫加劇。")
+
+                with st.expander("📂 查看原始數據清單", expanded=False):
                     st.table(df.tail(5))
-                else:
-                    st.info("尚無數據紀錄。")
+            else:
+                st.info("尚無數據紀錄。")
 
-            st.write("---")
-
-            # --- 區塊 B: Palladia 投藥實驗紀錄 (獨立模組) ---
-            # 這裡調用你剛才定義的函數，或直接嵌入
-            st.markdown('<div class="medical-card">', unsafe_allow_html=True)
-            with st.expander("💊 Palladia 投藥實驗監測 (23:00)", expanded=False):
-                col1, col2 = st.columns(2)
-                with col1:
-                    p_status = st.radio("給藥方式", ["完整投藥", "隨食物給予"], horizontal=True)
-                with col2:
-                    p_time = st.time_input("實際投藥時間")
-                
-                p_side_effects = st.multiselect(
-                    "投藥後觀察", ["無異常", "黑糞(出血徵兆)", "嘔吐", "極度萎靡"]
-                )
-                
-                if "黑糞(出血徵兆)" in p_side_effects:
-                    st.error("🚨 警告：Palladia 可能引發消化道潰瘍，請立即聯繫蔣醫師。")
-                
-                if st.button("📝 提交 Palladia 日誌"):
-                    # 將 Palladia 資訊轉化為字串存入「診斷筆記」或特定欄位
-                    p_note = f"【Palladia】{p_status} / 觀察：{', '.join(p_side_effects)}"
-                    ws2.append_row([str(datetime.date.today()), "", "", "", "", p_note])
-                    st.toast("投藥實驗紀錄已存檔", icon="💊")
-            st.markdown('</div>', unsafe_allow_html=True)
-
-            st.write("---")
-
-            # --- 區塊 C: 標準回診紀錄表單 ---
+            st.divider()
+            
+            # --- ➕ 新增紀錄表單 ---
             st.subheader("➕ 新增回診紀錄")
             with st.form("medical_entry"):
-                l, r = st.columns(2)
-                with l:
+                col_l, col_r = st.columns(2)
+                
+                with col_l:
                     d = st.date_input("檢查日期")
-                    b = st.text_input("BUN")
-                with r:
-                    c = st.text_input("CREA")
-                    w = st.text_input("醫院體重")
+                    b = st.text_input("BUN (mg/dL)")
+                    # 新增的嘔吐次數 Slider
+                    v = st.slider("今日嘔吐次數 (24h)", 0, 10, 0, help="觀察到的小豹嘔吐總次數")
                 
-                note = st.text_area("影像觀察 (如：胰臟囊腫擴大 21mm)")
+                with col_r:
+                    w = st.text_input("醫院體重 (kg)")
+                    c = st.text_input("CREA (mg/dL)")
+                    g = st.text_input("醫院血糖 (mg/dL)")
                 
-                if st.form_submit_button("📁 永久存檔"):
-                    ws2.append_row([str(d), b, c, w, "", note])
-                    st.toast("醫療紀錄已歸檔", icon="🏥")
+                note = st.text_area("影像觀察 (如：胰臟囊腫擴大、腸道蠕動狀況)")
+                
+                if st.form_submit_button("📁 永久存檔至雲端"):
+                    # 依照 [日期, BUN, CREA, 體重, 血糖, 嘔吐, 筆記] 順序寫入
+                    ws2.append_row([str(d), b, c, w, g, str(v), note])
+                    st.toast("臨床數據已安全存檔", icon="🏥")
                     st.rerun()
 
         except Exception as e:
