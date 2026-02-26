@@ -124,7 +124,7 @@ if page == "📊 即時監控儀表板":
                     st.error(f"同步失敗: {e}")
 
 # ==========================================
-# 4. 醫療生化紀錄 (V3.0 臨床強化版)
+# 4. 醫療生化紀錄 (V3.0 臨床修復版)
 # ==========================================
 elif page == "📋 醫療生化紀錄":
     st.header("🏥 臨床生化監測面板")
@@ -135,55 +135,51 @@ elif page == "📋 醫療生化紀錄":
             ws2 = sh.worksheet("工作表2")
             all_vals = ws2.get_all_values()
             
-            # 擴展至 10 個主要監控欄位
-            headers = ["日期", "嘔吐", "體重", "BUN", "CREA", "血糖", "電解質(Na/K)", "Palladia", "影像筆記"]
+            # 定義 V3.0 標準 9 欄位 
+            headers = ["日期", "嘔吐次數", "體重(kg)", "BUN", "CREA", "血糖", "Na/K", "Palladia", "診斷筆記"]
             
-            # --- 數據呈現與自動警告 ---
-            if len(all_vals) > 1:
-                df = pd.DataFrame([row[:9] for row in all_vals[1:]], columns=headers)
+            if len(all_vals) > 0:
+                # 核心修復：強制對齊每一列到 9 欄 
+                processed_data = []
+                for row in all_vals[1:]: # 跳過標題
+                    new_row = row[:9] # 只取前 9 欄
+                    new_row += [""] * (9 - len(new_row)) # 若不足 9 欄則補空字串
+                    processed_data.append(new_row)
                 
-                # 臨床數值自動檢查
-                latest = df.iloc[-1]
-                try:
-                    curr_bun = float(latest['BUN'])
-                    curr_crea = float(latest['CREA'])
-                    if curr_bun > 29 or curr_crea > 1.6:
-                        st.error(f"⚠️ 臨床警訊：最近一次腎指標偏高 (BUN:{curr_bun}, CREA:{curr_crea})，請注意飲水量及嘔吐狀況。")
-                except:
-                    pass
+                df = pd.DataFrame(processed_data, columns=headers)
+                
+                # --- 自動臨床警告邏輯 ---
+                latest_bun = pd.to_numeric(df.iloc[-1]['BUN'], errors='coerce')
+                if latest_bun > 29:
+                    st.error(f"⚠️ 臨床警訊：BUN ({latest_bun}) 已超出參考範圍上限 (29)，請監控脫水狀態。") [cite: 21]
 
-                with st.expander("📂 展開完整歷史數據 (前 10 筆)", expanded=False):
+                with st.expander("📂 歷史趨勢數據", expanded=False):
                     st.dataframe(df.tail(10), use_container_width=True)
-
-            st.divider()
             
-            # --- ➕ 擴充型手動填寫欄位 ---
-            st.subheader("➕ 登錄新臨床觀察 (包含電解質與胰臟狀態)")
-            with st.form("comprehensive_medical_entry"):
+            st.divider()
+
+            # --- ➕ 擴充型手動表單 ---
+            st.subheader("➕ 新增臨床觀察紀錄")
+            with st.form("medical_entry_v3"):
                 c1, c2, c3 = st.columns(3)
-                
                 with c1:
-                    d = st.date_input("紀錄日期")
+                    d = st.date_input("檢查日期")
                     v = st.slider("今日嘔吐次數", 0, 10, 0)
-                    w = st.text_input("體重 (kg)", placeholder="4.46") # 參考最新報價 
-                
+                    w = st.text_input("體重 (kg)", value="4.46") # 2/24 最新體重 [cite: 20]
                 with c2:
-                    b = st.text_input("BUN (15-29)", placeholder="28")
-                    c = st.text_input("CREA (0.9-1.6)", placeholder="1.5")
-                    g = st.text_input("Glu 血糖", placeholder="258")
-                
+                    b = st.text_input("BUN (Ref: 15-29)", value="28") # 
+                    c = st.text_input("CREA (Ref: 0.9-1.6)", value="1.5") # 
+                    g = st.text_input("Glu 血糖", value="258") # 
                 with c3:
-                    nak = st.text_input("電解質 Na/K", placeholder="164/4.4")
-                    p_drug = st.selectbox("💊 Palladia", ["無投藥", "完整", "隨餐", "停藥"])
+                    nak = st.text_input("Na/K (Ref: 150-165 / 3.5-5.8)", value="164/4.4") # 
+                    p_drug = st.selectbox("💊 Palladia", ["無", "完整", "隨餐", "停藥"])
                 
-                note = st.text_area("影像觀察 (例如：囊腫 21.7mm、胰臟邊緣不整)", placeholder="請註明嘔吐物內容及食慾狀態")
+                note = st.text_area("影像觀察 (如：胰囊 21.7mm、幽門蠕動狀況)")
                 
-                if st.form_submit_button("📁 確認存檔並同步雲端"):
-                    # 按照 headers 順序寫入數據
-                    new_row = [str(d), str(v), w, b, c, g, nak, p_drug, note]
-                    ws2.append_row(new_row)
-                    st.balloons()
-                    st.success("數據已同步。")
+                if st.form_submit_button("📁 永久存檔並同步"):
+                    # 依照 headers 順序寫入 9 欄
+                    ws2.append_row([str(d), str(v), w, b, c, g, nak, p_drug, note])
+                    st.success("數據已寫入雲端資料庫。")
                     st.rerun()
 
         except Exception as e:
